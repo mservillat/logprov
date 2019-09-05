@@ -1,0 +1,15 @@
+get_observations:
+    description: desc
+    usage:
+        - name: datastore
+          path: observations.datastore
+
+reduce:
+    description: desc
+    usage:
+
+fit:
+    description: desc
+    usage:
+
+get_flux_points:

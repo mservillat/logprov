@@ -12,8 +12,12 @@ from contextlib import contextmanager
 from os.path import abspath
 import psutil
 from astropy.time import Time
+from gammapy.utils.scripts import read_yaml
+from pathlib import Path
 from functools import wraps
 import gammapy
+import time
+
 
 log = logging.getLogger(__name__)
 
@@ -33,17 +37,21 @@ _interesting_env_vars = [
     'HOME',
     'SHELL',
 ]
-import time
 
+CONFIG_PATH = Path(__file__).resolve().parent / "config"
+SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
 
 class LogProv(type):
     """ A Metaclass which decorates the methods with trace."""
 
     def __new__(cls, clsname, superclasses, attributedict):
         """ Every method gets decorated with the decorator trace."""
+
+        definitions = read_yaml(SCHEMA_FILE)
+
         for attr in attributedict:
-            if not attr.startswith("_") and callable(attributedict[attr]):
-                print('decorated methods:', attributedict[attr])
+            if attr in definitions.keys() and callable(attributedict[attr]):
+                print('decorated method:', attr)
                 attributedict[attr] = trace(attributedict[attr])
         return type.__new__(cls, clsname, superclasses, attributedict)
 
