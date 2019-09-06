@@ -40,6 +40,8 @@ _interesting_env_vars = [
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config"
 SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
+definition = read_yaml(SCHEMA_FILE)
+
 
 class LogProv(type):
     """ A Metaclass which decorates the methods with trace."""
@@ -47,10 +49,8 @@ class LogProv(type):
     def __new__(cls, clsname, superclasses, attributedict):
         """ Every method gets decorated with the decorator trace."""
 
-        definitions = read_yaml(SCHEMA_FILE)
-
         for attr in attributedict:
-            if attr in definitions.keys() and callable(attributedict[attr]):
+            if attr in definition.keys() and callable(attributedict[attr]):
                 print('decorated method:', attr)
                 attributedict[attr] = trace(attributedict[attr])
         return type.__new__(cls, clsname, superclasses, attributedict)
@@ -61,22 +61,51 @@ def trace(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
+        activity = func.__name__
         start = time.time()
         analysis = func(*args, **kwargs)
         end = time.time()
 
-        # if analysis.settings["general"]["logging"]["level"] == "PROV":
-        p = Provenance()
-        log.info(start)
-        log.info(id(func))
-        log.info(func.__name__)
-        log.info(analysis.__getattribute__("settings"))
-        log.info(end)
-        p.start_activity()
-        p.add_input_file("test.txt")
-        p.finish_activity()
-        # dump prov to file gammapy-prov in outdir
+        if activity in definition.keys():
+            # if analysis.settings["general"]["logging"]["level"] == "PROV":
+            p = Provenance()
+            log.info("start: {}".format(start))
+            p.start_activity(activity)
+            log.info("activity id: {}".format(id(func)))
+            for params in definition[activity]["parameters"]:
+                log.info("used param: {}".format(params["path"]))
+                trace_nested_value(analysis, params["path"], "param", id(func))
+            for usage in definition[activity]["usage"]:
+                log.info("used entity: {}".format(usage["path"]))
+                trace_nested_value(analysis, usage["path"], "entity", id(func))
+            log.info("end: {}".format(end))
+            #p.add_input_file("test.txt")
+            p.finish_activity()
+            # dump prov to file gammapy-prov in outdir
+
     return wrapper
+
+
+def trace_nested_value(nested, branch, type, activity_id):
+    """Helper function that logs a specific value in a nested dictionary or class."""
+    list_branch = branch.split(".")
+    leaf = list_branch.pop(0)
+    str_branch = ".".join(list_branch)
+    if isinstance(nested, dict):
+        val = nested[leaf]
+    elif isinstance(nested, object):
+        val = nested.__getattribute__(leaf)
+    else:
+        raise TypeError
+    if len(list_branch):
+        trace_nested_value(val, str_branch, type, activity_id)
+    else:
+        if type == "param":
+            log.info("used param id: {}-{}".format(activity_id, leaf))
+            log.info("used param value: {}".format(val))
+        else:
+            log.info("used entity id: {}".format(id(val)))
+            log.info("used entity value: {}".format(val))
 
 
 class Singleton(type):
