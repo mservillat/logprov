@@ -1,15 +1,24 @@
 get_observations:
     description: desc
+    parameters:
+        - name: datastore
+          path: settings.observations.datastore
     usage:
         - name: datastore
-          path: observations.datastore
+          path: settings.observations.datastore
+    generation:
+
 
 reduce:
     description: desc
+    paramters:
     usage:
+    generation:
 
 fit:
     description: desc
+    paramters:
     usage:
+    generation:
 
 get_flux_points:
