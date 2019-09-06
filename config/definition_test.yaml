@@ -1,0 +1,15 @@
+fit:
+    description: 'Fitting reduced data sets to model.'
+    parameters:
+      - reduction.background.background_estimator  # test if == "reflected"
+      - reduction.data_reducer
+      - fit.fit_range.min
+      - fit.fit_range.max
+      - model
+      - optimize_opts  # arg to method
+    usage:
+      - extraction.spectrum_observations
+    generation:
+      - model
+      - fit_result
+
