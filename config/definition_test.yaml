@@ -1,6 +1,5 @@
 #
 # Definition of ActivityDescription and EntityDescription
-#
 # activities:
 #   <activity_name>:
 #     description:
@@ -32,74 +31,76 @@ activities:
         description: "DataStore path"
         location: settings.observations.datastore
       - name: filters
-        location: self.settings.observations.filters
+        location: settings.observations.filters
     usage:
       - role: datastore
         description: "DataStore"
         entityType: DataStore
+        location: settings.observations.datastore
         location_from_parameter: datastore_path
     generation:
       - role: observations
         entityType: PythonObject
-        location: self.observations
+        location: observations
 
   reduce:
     description: "Produce reduced data sets."
     parameters:
       - name: data_reducer
-        location: self.settings.reduction.data_reducer
+        location: settings.reduction.data_reducer
       - name: background_params
-        location: self.settings.reduction.background
+        location: settings.reduction.background
       - name: exclusion_mask_filename
-        location: self.settings.reduction.background.exclusion_mask.filename
+        location: settings.reduction.background.exclusion_mask.filename
       - name: extraction_pars
-        location: self.settings.reduction
+        location: settings.reduction
       - name: geometry
-        location: self.settings.geometry
+        location: settings.geometry
     usage:
       - role: observations
         entityType: PythonObject
-        location: self.observations
+        location: observations
       - role: exclusion_region
         entityType: File
+        location: settings.reduction.background.exclusion_mask
         location_from_parameter: exclusion_mask_filename
       - role: fit_results
         entityType: PythonObject
-        location: self.fit_result
+        location: fit_result
     generation:
       - role: bkg_estimate
         entityType: PythonObject
-        location: self.background_estimator.result
+        location: background_estimator.result
       - role: spectrum_observations
         entityType: PythonObject
-        location: self.extraction.spectrum_observations
+        location: extraction.spectrum_observations
 
   fit:
     description: "Fitting reduced data sets to model."  # docstring of method
-    parameters:  # found in self.settings, or as arguments to the method
+    parameters:  # found in settings, or as arguments to the method
       - name: background_estimator
-        location: self.settings.reduction.background.background_estimator  # test if == "reflected"
+        location: settings.reduction.background.background_estimator  # test if == "reflected"
       - name: data_reducer
-        location: self.settings.reduction.data_reducer
+        location: settings.reduction.data_reducer
       - name: min
-        location: self.settings.fit.fit_range.min
+        location: settings.fit.fit_range.min
       - name: max
-        location: self.settings.fit.fit_range.max
+        location: settings.fit.fit_range.max
       - name: model
-        location: self.settings.model
+        location: settings.model
       - name: optimize_opts
         location: optimize_opts  # arg to method
     usage:  # found in self
       - role: spectrum_observations
         entityType: PythonObject
-        location: self.extraction.spectrum_observations
+        location: extraction.spectrum_observations
     generation:  # found in self
       - role: model
         entityType: PythonObject
-        location: self.model
+        location: model
       - role: fit_result
         entityType: PythonObject
-        location: self.fit_result
+        location: fit_result
     # activity execution may depend on some parameters
     filters:
       1:
@@ -111,25 +112,25 @@ activities:
     description: "Calculate flux points."
     parameters:
       - name: data_reducer
-        location: self.settings.reduction.data_reducer
+        location: settings.reduction.data_reducer
       - name: filters
-        location: self.settings.observations.filters
+        location: settings.observations.filters
       - name: fp_binning
-        location: self.settings.flux.fp_binning
+        location: settings.flux.fp_binning
     usage:
       - role: spectrum_observations
         entityType: PythonObject
-        location: self.extraction.spectrum_observations
+        location: extraction.spectrum_observations
       - role: model
         entityType: PythonObject
-        location: self.model
+        location: model
       - role: fit_results
         entityType: PythonObject
-        location: self.fit_result
+        location: fit_result
     generation:
       - role: flux_points_dataset
         entityType: PythonObject
-        location: self.flux_points_dataset
+        location: flux_points_dataset
 
 
 # track entities with an id:
