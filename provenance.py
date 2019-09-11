@@ -39,9 +39,10 @@ _interesting_env_vars = [
 ]
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config"
-SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
+SCHEMA_FILE = CONFIG_PATH / "definition_test.yaml"
 definition = read_yaml(SCHEMA_FILE)
 
+PROV_PREFIX = '_PROV_'
 
 class LogProv(type):
     """ A Metaclass which decorates the methods with trace."""
@@ -50,7 +51,7 @@ class LogProv(type):
         """ Every method gets decorated with the decorator trace."""
 
         for attr in attributedict:
-            if attr in definition.keys() and callable(attributedict[attr]):
+            if attr in definition["activities"].keys() and callable(attributedict[attr]):
                 print('decorated method:', attr)
                 attributedict[attr] = trace(attributedict[attr])
         return type.__new__(cls, clsname, superclasses, attributedict)
@@ -60,27 +61,35 @@ def trace(func):
     """ A decorator which tracks provenance info."""
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(self, *args, **kwargs):
+        # if analysis.settings["general"]["logging"]["level"] == "PROV":
+        # p = Provenance()
         activity = func.__name__
+        activity_id = id(func)
         start = time.time()
-        analysis = func(*args, **kwargs)
+        # Run activity
+        analysis = func(self, *args, **kwargs)
         end = time.time()
-
-        if activity in definition.keys():
-            # if analysis.settings["general"]["logging"]["level"] == "PROV":
-            p = Provenance()
-            log.info("start: {}".format(start))
-            p.start_activity(activity)
-            log.info("activity id: {}".format(id(func)))
-            for params in definition[activity]["parameters"]:
-                log.info("used param: {}".format(params["path"]))
-                trace_nested_value(analysis, params["path"], "param", id(func))
-            for usage in definition[activity]["usage"]:
-                log.info("used entity: {}".format(usage["path"]))
-                trace_nested_value(analysis, usage["path"], "entity", id(func))
-            log.info("end: {}".format(end))
+        # Start event, log activity_id, start_time, parameter values, used entities
+        if activity in definition["activities"].keys():
+            log.info("{} start: {}".format(PROV_PREFIX, start))
+            # p.start_activity(activity)
+            log.info("{} activity_id: {}".format(PROV_PREFIX, activity_id))
+            for params in definition["activities"][activity]["parameters"]:
+                log.info("{} param: {}".format(PROV_PREFIX, params.get("location")))
+                trace_nested_value(analysis, params.get("location"), "param", activity_id)
+            for usage in definition["activities"][activity]["usage"]:
+                log.info("{} used entity: {}".format(PROV_PREFIX, usage.get("location")))
+                trace_nested_value(analysis, usage.get("location"), "used", activity_id)
             #p.add_input_file("test.txt")
-            p.finish_activity()
+        # End event, log activity_id, end_time, generated entities
+        if activity in definition["activities"].keys():
+            for generation in definition["activities"][activity]["generation"]:
+                log.info("{} generated entity: {}".format(PROV_PREFIX, generation.get("location")))
+                trace_nested_value(analysis, generation.get("location"), "generated", activity_id)
+            log.info("{} end: {}".format(PROV_PREFIX, end))
+            # p.add_output_file("test.txt")
+            # p.finish_activity()
             # dump prov to file gammapy-prov in outdir
 
     return wrapper
@@ -101,11 +110,13 @@ def trace_nested_value(nested, branch, type, activity_id):
         trace_nested_value(val, str_branch, type, activity_id)
     else:
         if type == "param":
-            log.info("used param id: {}-{}".format(activity_id, leaf))
-            log.info("used param value: {}".format(val))
-        else:
-            log.info("used entity id: {}".format(id(val)))
-            log.info("used entity value: {}".format(val))
+            log.info("{} param: {}={}".format(PROV_PREFIX, leaf, val))
+        elif type == "used":
+            log.info("{} used entity_id={}".format(PROV_PREFIX, id(val)))
+            # log.info("used entity value: {}".format(val))
+        elif type == "generated":
+            log.info("{} generated entity_id={}".format(PROV_PREFIX, id(val)))
+            #log.info("used entity value: {}".format(val))
 
 
 class Singleton(type):
