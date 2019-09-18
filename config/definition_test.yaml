@@ -37,7 +37,8 @@ activities:
         description: "DataStore"
         entityType: DataStore
         location: settings.observations.datastore
-        location_from_parameter: datastore_path
+        from_parameter:
+          location: datastore_path
     generation:
       - role: observations
         entityType: PythonObject
@@ -63,10 +64,8 @@ activities:
       - role: exclusion_region
         entityType: File
         location: settings.reduction.background.exclusion_mask
-        location_from_parameter: exclusion_mask_filename
-      - role: fit_results
-        entityType: PythonObject
-        location: fit_result
+        from_parameter:
+          location: exclusion_mask_filename
     generation:
       - role: bkg_estimate
         entityType: PythonObject
