@@ -19,6 +19,7 @@ import gammapy
 import time
 import datetime
 import hashlib
+import yaml
 
 
 log = logging.getLogger(__name__)
@@ -124,6 +125,18 @@ def trace(func):
 
 def logprov(provdict):
     log.info("{}{}".format(PROV_PREFIX, provdict))
+
+
+def read_logprov(logname):
+    logprovlist = []
+    with open(logname, 'r') as f:
+        for l in f.readlines():
+            if PROV_PREFIX in l:
+                provstr = l.split(PROV_PREFIX).pop()
+                provdict = yaml.safe_load(provstr)
+                logprovlist.append(provdict)
+    print(logprovlist)
+
 
 
 def get_file_hash(path):
