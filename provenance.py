@@ -97,7 +97,7 @@ def trace(func):
                     ue = get_nested_value(analysis, usage["location"])
                     if ue:  # if ue is defined
                         urole = usage.get("role", usage["location"])
-                        eid = get_id(ue, usage.get("entityType"))
+                        eid = get_id(ue, usage)
                         logprov(dict(activity_id=activity_id, used_role=urole, used_id=eid))
             #p.add_input_file("test.txt")
             # log generated entities
@@ -106,7 +106,7 @@ def trace(func):
                     ge = get_nested_value(analysis, generation["location"])
                     if ge:  # if ge is defined
                         grole = generation.get("role", generation["location"])
-                        eid = get_id(ge, generation.get("entityType"))
+                        eid = get_id(ge, generation)
                         logprov(dict(activity_id=activity_id, generated_role=grole, generated_id=eid))
             # p.add_output_file("test.txt")
             logprov(dict(activity_id=activity_id, endTime=end))
@@ -139,14 +139,18 @@ def get_file_hash(path):
         return fullpath
 
 
-def get_id(value, etype):
+def get_id(value, description):
     """Helper function that gets the id of an entity, depending on its type."""
+    etype = description.get("entityType")
     etypes = definition["entityTypes"]
     if etype not in etypes:
         log.warning("The entity type {} was not found in the definitions.".format(etype))
     if etype == 'PythonObject':
         # value is an object in memory
-        return id(value)
+        try:
+            return hash(value)
+        except TypeError:
+            return id(value)
     if 'File' in etype:
         # value is a path to a file
         return get_file_hash(value)
@@ -164,17 +168,19 @@ def get_nested_value(nested, branch):
         return None
     list_branch = branch.split(".")
     leaf = list_branch.pop(0)
-    str_branch = ".".join(list_branch)
     if isinstance(nested, dict):
-        if leaf in nested:
-            val = nested[leaf]
-        else:
-            val = None
+        # if leaf in nested:
+        #     val = nested[leaf]
+        # else:
+        #     val = None
+        val = nested.get(leaf, None)
     elif isinstance(nested, object):
-        val = nested.__getattribute__(leaf)
+        # val = nested.__getattribute__(leaf)
+        val = getattr(nested, leaf, None)
     else:
         raise TypeError
     if len(list_branch):
+        str_branch = ".".join(list_branch)
         return get_nested_value(val, str_branch)
     else:
         return val
