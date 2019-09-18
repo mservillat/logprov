@@ -73,7 +73,7 @@ def trace(func):
         # Start event, log activity_id, start_time, parameter values, used entities
         if activity in definition["activities"].keys():
             # p.start_activity(activity)
-            logprov(dict(activity_id=activity_id, startTime=start))
+            logprov(dict(activity_id=activity_id, activity_name=activity, startTime=start))
         # Run activity
         # TODO: add try and log if exception occured
         analysis = func(self, *args, **kwargs)
@@ -136,7 +136,6 @@ def read_logprov(logname):
                 provdict = yaml.safe_load(provstr)
                 logprovlist.append(provdict)
     print(logprovlist)
-
 
 
 def get_file_hash(path):
