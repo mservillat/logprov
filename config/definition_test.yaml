@@ -5,8 +5,8 @@
 #     description:
 #     parameters:
 #       - name:
-#         location:
-#     usage:
+#         location:  # name of the Python variable (maybe be nested in an object or dictionary)
+#     usage/generation:
 #       - role:
 #         description:
 #         entityType:
@@ -19,7 +19,7 @@
 # entities:
 #   <entity_name>:
 #     description:
-#     path:
+#     path:  # default path?
 #
 
 activities:
@@ -104,8 +104,8 @@ activities:
     filters:
       1:
         filter: 'reduction.data_reducer == "1d"'
-        usage: [1]
-        generation: [1,1]
+        usage: [spectrum_observations]
+        generation: [model,fit_result]
 
   get_flux_points:
     description: "Calculate flux points."
@@ -140,15 +140,15 @@ activities:
 entityTypes:
   PythonObject:
     description: "A Python variable in memory"
-    path:
   DataStore:
     description: "A directory pointing to a collection of files on the disk"
     path: $GAMMAPY_DATA/hess-dl3-dr1
+    url: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
+  Observation:
+    description: "An observation from the DataStore with a unique obs_id"
+    url: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
   File:
     description: "A File on the disk"
-    path: ./
   FITSFile:
     description: "A FITS File on the disk"
     contentType: application/fits
-    path: ./
-
