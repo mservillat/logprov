@@ -72,7 +72,7 @@ def trace(func):
         # Start event, log activity_id, start_time, parameter values, used entities
         if activity in definition["activities"].keys():
             # p.start_activity(activity)
-            log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, startTime=start)))
+            logprov(dict(activity_id=activity_id, startTime=start))
         # Run activity
         # TODO: add try and log if exception occured
         analysis = func(self, *args, **kwargs)
@@ -87,7 +87,7 @@ def trace(func):
                     if pv:  # if pv is defined
                         pdict[p["name"]] = pv
             if pdict:
-                log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, parameters=pdict)))
+                logprov(dict(activity_id=activity_id, parameters=pdict))
             # log used entities
             for usage in definition["activities"][activity]["usage"]:
                 # if 'from_parameter' in usage:
@@ -98,7 +98,7 @@ def trace(func):
                     if ue:  # if ue is defined
                         urole = usage.get("role", usage["location"])
                         eid = get_id(ue, usage.get("entityType"))
-                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, used_role=urole, used_id=eid)))
+                        logprov(dict(activity_id=activity_id, used_role=urole, used_id=eid))
             #p.add_input_file("test.txt")
             # log generated entities
             for generation in definition["activities"][activity]["generation"]:
@@ -107,13 +107,17 @@ def trace(func):
                     if ge:  # if ge is defined
                         grole = generation.get("role", generation["location"])
                         eid = get_id(ge, generation.get("entityType"))
-                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, generated_role=grole, generated_id=eid)))
+                        logprov(dict(activity_id=activity_id, generated_role=grole, generated_id=eid))
             # p.add_output_file("test.txt")
-            log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, endTime=end)))
+            logprov(dict(activity_id=activity_id, endTime=end))
             # p.finish_activity()
             # dump prov to file gammapy-prov in outdir
 
     return wrapper
+
+
+def logprov(provdict):
+    log.info("{}{}".format(PROV_PREFIX, provdict))
 
 
 def get_file_hash(path):
