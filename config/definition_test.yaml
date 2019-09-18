@@ -142,7 +142,7 @@ entityTypes:
     description: "A Python variable in memory"
     path:
   DataStore:
-    description: "A collection of files on the disk"
+    description: "A directory pointing to a collection of files on the disk"
     path: $GAMMAPY_DATA/hess-dl3-dr1
   File:
     description: "A File on the disk"
