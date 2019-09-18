@@ -18,6 +18,7 @@ from functools import wraps
 import gammapy
 import time
 import datetime
+import hashlib
 
 
 log = logging.getLogger(__name__)
@@ -96,7 +97,8 @@ def trace(func):
                     ue = get_nested_value(analysis, usage["location"])
                     if ue:  # if ue is defined
                         urole = usage.get("role", usage["location"])
-                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, used_role=urole, used_id=id(ue))))
+                        eid = get_id(ue, usage.get("entityType"))
+                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, used_role=urole, used_id=eid)))
             #p.add_input_file("test.txt")
             # log generated entities
             for generation in definition["activities"][activity]["generation"]:
@@ -104,13 +106,52 @@ def trace(func):
                     ge = get_nested_value(analysis, generation["location"])
                     if ge:  # if ge is defined
                         grole = generation.get("role", generation["location"])
-                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, generated_role=grole, generated_id=id(ge))))
+                        eid = get_id(ge, generation.get("entityType"))
+                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, generated_role=grole, generated_id=eid)))
             # p.add_output_file("test.txt")
             log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, endTime=end)))
             # p.finish_activity()
             # dump prov to file gammapy-prov in outdir
 
     return wrapper
+
+
+def get_file_hash(path):
+    # get hash of file
+    fullpath = os.path.abspath(os.path.expandvars(path))
+    if os.path.isfile(fullpath):
+        BLOCKSIZE = 65536
+        hasher = hashlib.md5()
+        with open(fullpath, 'rb') as afile:
+            buf = afile.read(BLOCKSIZE)
+            while len(buf) > 0:
+                hasher.update(buf)
+                buf = afile.read(BLOCKSIZE)
+        filehash = hasher.hexdigest()
+        log.info("The entity is a file with hash={} ({})".format(filehash, path))
+        return filehash
+    else:
+        log.warning("The entity is a file that was not found ({}).".format(path))
+        return fullpath
+
+
+def get_id(value, etype):
+    """Helper function that gets the id of an entity, depending on its type."""
+    etypes = definition["entityTypes"]
+    if etype not in etypes:
+        log.warning("The entity type {} was not found in the definitions.".format(etype))
+    if etype == 'PythonObject':
+        # value is an object in memory
+        return id(value)
+    if 'File' in etype:
+        # value is a path to a file
+        return get_file_hash(value)
+    if 'DataStore' in etype:
+        # value is a path to a Gammapy data store, get full path? get hash of index ?
+        # return os.path.abspath(os.path.expandvars(value))
+        return get_file_hash(os.path.join(value, 'obs-index.fits.gz'))
+    # if no specific way to get id, use value as the id
+    return value
 
 
 def get_nested_value(nested, branch):
