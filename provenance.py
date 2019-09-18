@@ -17,6 +17,7 @@ from pathlib import Path
 from functools import wraps
 import gammapy
 import time
+import datetime
 
 
 log = logging.getLogger(__name__)
@@ -66,33 +67,72 @@ def trace(func):
         # p = Provenance()
         activity = func.__name__
         activity_id = id(func)
-        start = time.time()
-        # Run activity
-        analysis = func(self, *args, **kwargs)
-        end = time.time()
+        start = datetime.datetime.now().isoformat()  # time.time()
         # Start event, log activity_id, start_time, parameter values, used entities
         if activity in definition["activities"].keys():
-            log.info("{} start: {}".format(PROV_PREFIX, start))
             # p.start_activity(activity)
-            log.info("{} activity_id: {}".format(PROV_PREFIX, activity_id))
-            for params in definition["activities"][activity]["parameters"]:
-                log.info("{} param: {}".format(PROV_PREFIX, params.get("location")))
-                trace_nested_value(analysis, params.get("location"), "param", activity_id)
-            for usage in definition["activities"][activity]["usage"]:
-                log.info("{} used entity: {}".format(PROV_PREFIX, usage.get("location")))
-                trace_nested_value(analysis, usage.get("location"), "used", activity_id)
-            #p.add_input_file("test.txt")
-        # End event, log activity_id, end_time, generated entities
+            log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, startTime=start)))
+        # Run activity
+        # TODO: add try and log if exception occured
+        analysis = func(self, *args, **kwargs)
+        end = datetime.datetime.now().isoformat()  # time.time()
+        # Start event, log activity_id, start_time, parameter values, used entities
         if activity in definition["activities"].keys():
+            # log activity parameters
+            pdict = {}
+            for p in definition["activities"][activity]["parameters"]:
+                if 'name' in p and 'location' in p:
+                    pv = get_nested_value(analysis, p["location"])
+                    if pv:  # if pv is defined
+                        pdict[p["name"]] = pv
+            if pdict:
+                log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, parameters=pdict)))
+            # log used entities
+            for usage in definition["activities"][activity]["usage"]:
+                # if 'from_parameter' in usage:
+                #     for k, v in usage['from_parameter']:
+                #         usage[k] = pdict[v]
+                if 'location' in usage:
+                    ue = get_nested_value(analysis, usage["location"])
+                    if ue:  # if ue is defined
+                        urole = usage.get("role", usage["location"])
+                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, used_role=urole, used_id=id(ue))))
+            #p.add_input_file("test.txt")
+            # log generated entities
             for generation in definition["activities"][activity]["generation"]:
-                log.info("{} generated entity: {}".format(PROV_PREFIX, generation.get("location")))
-                trace_nested_value(analysis, generation.get("location"), "generated", activity_id)
-            log.info("{} end: {}".format(PROV_PREFIX, end))
+                if 'location' in generation:
+                    ge = get_nested_value(analysis, generation["location"])
+                    if ge:  # if ge is defined
+                        grole = generation.get("role", generation["location"])
+                        log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, generated_role=grole, generated_id=id(ge))))
             # p.add_output_file("test.txt")
+            log.info("{}{}".format(PROV_PREFIX, dict(activity_id=activity_id, endTime=end)))
             # p.finish_activity()
             # dump prov to file gammapy-prov in outdir
 
     return wrapper
+
+
+def get_nested_value(nested, branch):
+    """Helper function that gets a specific value in a nested dictionary or class."""
+    if not nested:
+        return None
+    list_branch = branch.split(".")
+    leaf = list_branch.pop(0)
+    str_branch = ".".join(list_branch)
+    if isinstance(nested, dict):
+        if leaf in nested:
+            val = nested[leaf]
+        else:
+            val = None
+    elif isinstance(nested, object):
+        val = nested.__getattribute__(leaf)
+    else:
+        raise TypeError
+    if len(list_branch):
+        return get_nested_value(val, str_branch)
+    else:
+        return val
 
 
 def trace_nested_value(nested, branch, type, activity_id):
