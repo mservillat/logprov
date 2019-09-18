@@ -10,13 +10,13 @@
 #       - role:
 #         description:
 #         entityType:
-#         location:
-#         location_from_parameter:
-#     generation:
-#       - role:
-#         entityType:
-#         location:
-# entities:
+#         location:  # PythonObject or variable containing a valid path to a File/DataStore
+#         from_parameter:
+#           location:  # location is the value contained in the pointed parameter (--> parameters.name)
+#         has_members:
+#           list:  # Python list of the members (e.g. observations.list)
+#           location:  # for each object in list, location of the entity (e.g. obs_id for list[*].obs_id)
+# entityTypes:
 #   <entity_name>:
 #     description:
 #     path:  # default path?
@@ -43,7 +43,10 @@ activities:
       - role: observations
         entityType: PythonObject
         location: observations
-
+        has_members:
+          entityType: Observation
+          list: observations.list
+          location: obs_id
   reduce:
     description: "Produce reduced data sets."
     parameters:
