@@ -108,6 +108,12 @@ def trace(func):
                         grole = generation.get("role", generation["location"])
                         eid = get_id(ge, generation)
                         logprov(dict(activity_id=activity_id, generated_role=grole, generated_id=eid))
+                        if 'has_members' in generation:
+                            list = get_nested_value(analysis, generation["has_members"].get('list'))
+                            for elt in list:
+                                eltval = get_nested_value(elt, generation["has_members"].get('location'))
+                                eltid = get_id(eltval, generation["has_members"])
+                                logprov(dict(entity_id=eid, member_id=eltid))
             # p.add_output_file("test.txt")
             logprov(dict(activity_id=activity_id, endTime=end))
             # p.finish_activity()
@@ -154,7 +160,7 @@ def get_id(value, description):
     if 'File' in etype:
         # value is a path to a file
         return get_file_hash(value)
-    if 'DataStore' in etype:
+    if etype == 'DataStore':
         # value is a path to a Gammapy data store, get full path? get hash of index ?
         # return os.path.abspath(os.path.expandvars(value))
         return get_file_hash(os.path.join(value, 'obs-index.fits.gz'))
