@@ -135,7 +135,7 @@ def read_logprov(logname):
                 provstr = l.split(PROV_PREFIX).pop()
                 provdict = yaml.safe_load(provstr)
                 logprovlist.append(provdict)
-    print(logprovlist)
+    return logprovlist
 
 
 def get_file_hash(path):
@@ -182,25 +182,24 @@ def get_id(value, description):
 
 def get_nested_value(nested, branch):
     """Helper function that gets a specific value in a nested dictionary or class."""
-    if not nested:
-        return None
     list_branch = branch.split(".")
     leaf = list_branch.pop(0)
+    if not nested:
+        return globals().get(leaf, None)
+    # Get value of leaf
     if isinstance(nested, dict):
-        # if leaf in nested:
-        #     val = nested[leaf]
-        # else:
-        #     val = None
         val = nested.get(leaf, None)
     elif isinstance(nested, object):
-        # val = nested.__getattribute__(leaf)
         val = getattr(nested, leaf, None)
     else:
         raise TypeError
+    # Continue to explore leaf or return value
     if len(list_branch):
         str_branch = ".".join(list_branch)
         return get_nested_value(val, str_branch)
     else:
+        if not val:
+            val = globals().get(leaf, None)
         return val
 
 

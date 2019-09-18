@@ -91,7 +91,7 @@ activities:
       - name: model
         location: settings.model
       - name: optimize_opts
-        location: optimize_opts  # arg to method
+        location: optimize_opts  # arg to method...
     usage:  # found in self
       - role: spectrum_observations
         entityType: PythonObject
