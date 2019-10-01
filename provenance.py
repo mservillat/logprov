@@ -43,7 +43,7 @@ _interesting_env_vars = [
 ]
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config"
-SCHEMA_FILE = CONFIG_PATH / "definition_test.yaml"
+SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
 definition = read_yaml(SCHEMA_FILE)
 
 PROV_PREFIX = '_PROV_'
@@ -69,8 +69,8 @@ def trace(func):
         # if analysis.settings["general"]["logging"]["level"] == "PROV":
         # p = Provenance()
         activity = func.__name__
-        activity_id = id(func)
         start = datetime.datetime.now().isoformat()  # time.time()
+        activity_id = id(func) + id(start)
         # Start event, log activity_id, start_time, parameter values, used entities
         if activity in definition["activities"].keys():
             # p.start_activity(activity)
