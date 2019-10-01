@@ -205,18 +205,31 @@ def log_generation(analysis, activity, activity_id):
 
 def log_prov(prov_dict):
     """ Write a dictionary to the log with a prefix to indicate provenance info"""
-    log.info(f"{PROV_PREFIX}{prov_dict}")
+    log.info("{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict))
 
 
-def read_prov(logname):
+def read_logprov(logname, start=None, end=None):
     """ Read a list of provenance dictionaries from the log"""
+    provlist = []
+    if start:
+        startdt = datetime.datetime.fromisoformat(start)
+    if end:
+        enddt = datetime.datetime.fromisoformat(start)
     provlist = []
     with open(logname, 'r') as f:
         for l in f.readlines():
             if PROV_PREFIX in l:
-                provstr = l.split(PROV_PREFIX).pop()
-                provdict = yaml.safe_load(provstr)
-                provlist.append(provdict)
+                ll = l.split(PROV_PREFIX)
+                provstr = ll.pop()
+                provdt = datetime.datetime.fromisoformat(ll.pop())
+                keep = True
+                if start and provdt < startdt:
+                    keep = False
+                if end and provdt > enddt:
+                    keep = False
+                if keep:
+                    provdict = yaml.safe_load(provstr)
+                    provlist.append(provdict)
     return provlist
 
 
