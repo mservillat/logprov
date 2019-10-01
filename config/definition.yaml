@@ -1,21 +1,26 @@
+---
 #
-# Definition of ActivityDescription and EntityDescription objects
+# Definition of ActivityDescription and EntityDescription
 # activities:
 #   <activity_name>:
 #     description:
 #     parameters:
 #       - name:
-#         location:  # name of the Python variable (maybe be nested in an object or dictionary)
+#         location:    # name of the Python variable
+#                      # (maybe be nested in an object or dict)
 #     usage/generation:
 #       - role:
 #         description:
 #         entityType:
-#         location:  # PythonObject or variable containing a valid path to a File/DataStore
+#         location:    # PythonObject or variable containing
+#                      # a valid path to a File/DataStore
 #         from_parameter:
-#           location:  # location is the value contained in the pointed parameter (--> parameters.name)
+#           location:  # location is the value contained in
+#                      # the pointed parameter (--> parameters.name)
 #         has_members:
-#           list:  # Python list of the members (e.g. observations.list)
-#           location:  # for each object in list, location of the entity (e.g. obs_id for list[*].obs_id)
+#           list:      # Python list of the members (e.g. observations.list)
+#           location:  # for each object in list, location of the entity
+#                      # (e.g. obs_id for list[*].obs_id)
 # entityTypes:
 #   <entity_name>:
 #     description:
@@ -24,115 +29,153 @@
 
 activities:
 
-  get_observations:
-    description: "Fetch observations from the data store according to criteria defined in the configuration."
-    parameters:
-      - name: datastore_path
-        description: "DataStore path"
-        location: settings.observations.datastore
-      - name: filters
-        location: settings.observations.filters
-    usage:
-      - role: datastore
-        description: "DataStore"
-        entityType: DataStore
-        location: settings.observations.datastore
-        from_parameter:
-          location: datastore_path
-    generation:
-      - role: observations
-        entityType: PythonObject
-        location: observations
-        has_members:
-          entityType: Observation
-          list: observations.list
-          location: obs_id
-  reduce:
-    description: "Produce reduced data sets."
-    parameters:
-      - name: data_reducer
-        location: settings.reduction.data_reducer
-      - name: background_params
-        location: settings.reduction.background
-      - name: exclusion_mask_filename
-        location: settings.reduction.background.exclusion_mask.filename
-      - name: extraction_pars
-        location: settings.reduction
-      - name: geometry
-        location: settings.geometry
-    usage:
-      - role: observations
-        entityType: PythonObject
-        location: observations
-      - role: exclusion_region
-        entityType: File
-        location: settings.reduction.background.exclusion_mask
-        from_parameter:
-          location: exclusion_mask_filename
-    generation:
-      - role: bkg_estimate
-        entityType: PythonObject
-        location: background_estimator.result
-      - role: spectrum_observations
-        entityType: PythonObject
-        location: extraction.spectrum_observations
+    get_observations:
+        description:
+            "Fetch observations from the data store according
+            to criteria defined in the configuration"
+        parameters:
+            - name: datastore
+              description: "DataStore path"
+              location: settings.observations.datastore
+            - name: filters
+              description: "Filter criteria to select observations"
+              location: settings.observations.filters
+        usage:
+            - role: datastore
+              description: "DataStore object"
+              entityType: DataStore
+              location: settings.observations.datastore
+              # from_parameter:
+              #    location: datastore
+        generation:
+            - role: observations
+              description: "Observations selected"
+              entityType: PythonObject
+              location: observations
+              has_members:
+                  entityType: Observation
+                  list: observations.list
+                  location: obs_id
 
-  fit:
-    description: "Fitting reduced data sets to model."  # docstring of method
-    parameters:  # found in settings, or as arguments to the method
-      - name: background_estimator
-        location: settings.reduction.background.background_estimator  # test if == "reflected"
-      - name: data_reducer
-        location: settings.reduction.data_reducer
-      - name: min
-        location: settings.fit.fit_range.min
-      - name: max
-        location: settings.fit.fit_range.max
-      - name: model
-        location: settings.model
-      - name: optimize_opts
-        location: optimize_opts  # arg to method...
-    usage:  # found in self
-      - role: spectrum_observations
-        entityType: PythonObject
-        location: extraction.spectrum_observations
-    generation:  # found in self
-      - role: model
-        entityType: PythonObject
-        location: model
-      - role: fit_result
-        entityType: PythonObject
-        location: fit_result
-    # activity execution may depend on some parameters
-    filters:
-      1:
-        filter: 'reduction.data_reducer == "1d"'
-        usage: [spectrum_observations]
-        generation: [model,fit_result]
+    get_datasets:
+        description: "Produce reduced datasets"
+        parameters:
+            - name: stack-datasets
+              description: "Stack datasets flag"
+              location: settings.datasets.stack-datasets
+            - name: dataset-type
+              description: "Datasets type"
+              location: settings.datasets.dataset-type
+            - name: geom
+              description: "Geometry parameters"
+              location: settings.datasets.geom
+            - name: geom-irf
+              description: "Geometry parameters in IRFs"
+              location: settings.datasets.geom-irf
+            - name: background
+              description: "Background parameters"
+              location: settings.datasets.background
+            - name: containment_correction
+              description: "Containment_correction used in spectrum extraction"
+              location: settings.datasets.containment_correction
+            - name: offset-max
+              description: "Max offset to produce the dataset cutout"
+              location: settings.datasets.offset-max
+            - name: psf-kernel-radius
+              description: "Max offset to produce the dataset cutout"
+              location: settings.datasets.offset-max
+        usage:
+            - role: observations
+              description: "Observations selected"
+              entityType: PythonObject
+              location: observations
 
-  get_flux_points:
-    description: "Calculate flux points."
-    parameters:
-      - name: data_reducer
-        location: settings.reduction.data_reducer
-      - name: filters
-        location: settings.observations.filters
-      - name: fp_binning
-        location: settings.flux.fp_binning
-    usage:
-      - role: spectrum_observations
-        entityType: PythonObject
-        location: extraction.spectrum_observations
-      - role: model
-        entityType: PythonObject
-        location: model
-      - role: fit_results
-        entityType: PythonObject
-        location: fit_result
-    generation:
-      - role: flux_points_dataset
-        entityType: PythonObject
-        location: flux_points_dataset
+        generation:
+            - role: datasets
+              description: "Datasets produced"
+              entityType: PythonObject
+              location: datasets
+
+#       activity execution may depend on some parameters
+#       filter:
+#            - criteria:
+#              "settings.datasets.dataset-type == 'SpectrumDatasetOnOff' and
+#              settings.datasets.background.background_estimator == 'reflected'"
+#              usage: [spectrum_observations]
+#              generation: [model, fit_result]
+#            - criteria:
+#              "settings.datasets.dataset-type == 'MapDataset'"
+#              usage: [spectrum_observations]
+#              generation: [model, fit_result]
+
+
+    set_model:
+        description:
+            "Read the model from dict or filename
+            and attach it to datasets"
+        parameters:
+            - name: model
+              location: model
+            - name: filename
+              location: filename
+        usage:
+            - role: spectrum_observations
+              entityType: PythonObject
+              location: extraction.spectrum_observations
+        generation:  # found in self
+            - role: fit_result
+              entityType: PythonObject
+              location: fit_result
+
+
+    run_fit:
+        description: "Fitting reduced data sets to model."
+        parameters:  # found in settings, or as arguments to the method
+            - name: background_estimator
+              location: settings.reduction.background.background_estimator
+            - name: data_reducer
+              location: settings.reduction.data_reducer
+            - name: min
+              location: settings.fit.fit_range.min
+            - name: max
+              location: settings.fit.fit_range.max
+            - name: model
+              location: settings.model
+            - name: optimize_opts
+              location: optimize_opts  # arg to method...
+        usage:  # found in self
+            - role: spectrum_observations
+              entityType: PythonObject
+              location: extraction.spectrum_observations
+        generation:  # found in self
+            - role: fit_result
+              entityType: PythonObject
+              location: fit_result
+
+
+    get_flux_points:
+        description: "Calculate flux points."
+        parameters:
+            - name: data_reducer
+              location: settings.reduction.data_reducer
+            - name: filters
+              location: settings.observations.filters
+            - name: fp_binning
+              location: settings.flux-points.fp_binning
+        usage:
+            - role: datasets
+              entityType: PythonObject
+              location: dataset
+            - role: model
+              entityType: PythonObject
+              location: model
+            - role: fit_results
+              entityType: PythonObject
+              location: fit_result
+        generation:
+            - role: flux_points_dataset
+              entityType: PythonObject
+              location: flux_points_dataset
 
 
 # track entities with an id:
@@ -141,17 +184,17 @@ activities:
 # id()? but memory allocation, so may not be unique
 
 entityTypes:
-  PythonObject:
-    description: "A Python variable in memory"
-  DataStore:
-    description: "A directory pointing to a collection of files on the disk"
-    location: $GAMMAPY_DATA/hess-dl3-dr1
-    docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
-  Observation:
-    description: "An observation from the DataStore with a unique obs_id"
-    docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
-  File:
-    description: "A File on the disk"
-  FITSFile:
-    description: "A FITS File on the disk"
-    contentType: application/fits
+    PythonObject:
+        description: "A Python variable in memory"
+    DataStore:
+        description: "A directory pointing to a collection of files on the disk"
+        path: $GAMMAPY_DATA/hess-dl3-dr1     # remove ???
+        url: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
+    Observation:
+        description: "An observation from the DataStore with a unique obs_id"
+        url: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
+    File:
+        description: "A File on the disk"
+    FITSFile:
+        description: "A FITS File on the disk"
+        contentType: application/fits
