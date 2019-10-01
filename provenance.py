@@ -20,6 +20,7 @@ import time
 import datetime
 import hashlib
 import yaml
+from prov.model import ProvDocument
 
 
 log = logging.getLogger(__name__)
@@ -99,7 +100,13 @@ def trace(func):
                     if ue:  # if ue is defined
                         urole = usage.get("role", usage["location"])
                         eid = get_id(ue, usage)
-                        logprov(dict(activity_id=activity_id, used_role=urole, used_id=eid))
+                        provdict = dict(activity_id=activity_id, used_role=urole, used_id=eid)
+                        if 'entityType' in usage:
+                            provdict['entity_type'] = usage['entityType']
+                            if provdict['entity_type'] not in ['PythonObject']:
+                                if ue is not eid:
+                                    provdict['entity_location'] = ue
+                        logprov(provdict)
             #p.add_input_file("test.txt")
             # log generated entities
             for generation in definition["activities"][activity]["generation"]:
@@ -108,13 +115,25 @@ def trace(func):
                     if ge:  # if ge is defined
                         grole = generation.get("role", generation["location"])
                         eid = get_id(ge, generation)
-                        logprov(dict(activity_id=activity_id, generated_role=grole, generated_id=eid))
+                        provdict = dict(activity_id=activity_id, generated_role=grole, generated_id=eid)
+                        if 'entityType' in generation:
+                            provdict['entity_type'] = generation['entityType']
+                            if provdict['entity_type'] not in ['PythonObject']:
+                                if ge is not eid:
+                                    provdict['entity_location'] = ge
+                        logprov(provdict)
                         if 'has_members' in generation:
                             list = get_nested_value(analysis, generation["has_members"].get('list'))
                             for elt in list:
                                 eltval = get_nested_value(elt, generation["has_members"].get('location'))
                                 eltid = get_id(eltval, generation["has_members"])
-                                logprov(dict(entity_id=eid, member_id=eltid))
+                                provdict = dict(entity_id=eid, member_id=eltid)
+                                if 'entityType' in generation["has_members"]:
+                                    provdict['member_type'] = generation["has_members"]['entityType']
+                                    if provdict['member_type'] not in ['PythonObject']:
+                                        if eltval is not eltid:
+                                            provdict['member_location'] = eltval
+                                logprov(provdict)
             # p.add_output_file("test.txt")
             logprov(dict(activity_id=activity_id, endTime=end))
             # p.finish_activity()
@@ -124,18 +143,121 @@ def trace(func):
 
 
 def logprov(provdict):
+    """ Write a dictionary to the log with a prefix to indicate provenance info"""
     log.info("{}{}".format(PROV_PREFIX, provdict))
 
 
 def read_logprov(logname):
-    logprovlist = []
+    """ Read a list of provenance dictionaries from the log"""
+    provlist = []
     with open(logname, 'r') as f:
         for l in f.readlines():
             if PROV_PREFIX in l:
                 provstr = l.split(PROV_PREFIX).pop()
                 provdict = yaml.safe_load(provstr)
-                logprovlist.append(provdict)
-    return logprovlist
+                provlist.append(provdict)
+    return provlist
+
+
+def provlist2provdoc(provlist):
+    """ Convert a list of provenance dictionaries to a provdoc W3C PROV compatible"""
+    pdoc = ProvDocument()
+    pdoc.set_default_namespace('param:')
+    pdoc.add_namespace('id', 'id:')
+    records = {}
+    for provdict in provlist:
+        # activity
+        if 'activity_id' in provdict:
+            act_id = 'id:' + str(provdict['activity_id']).replace('-','')
+            if act_id in records:
+                act = records[act_id]
+            else:
+                act = pdoc.activity(act_id)
+                records[act_id] = act
+            # activity name
+            if 'activity_name' in provdict:
+                act.add_attributes({'prov:label': provdict['activity_name']})
+            # activity start
+            if 'startTime' in provdict:
+                act.set_time(startTime=datetime.datetime.fromisoformat(provdict['startTime']))
+            # activity end
+            if 'endTime' in provdict:
+                act.set_time(endTime=datetime.datetime.fromisoformat(provdict['endTime']))
+            # activity configuration
+            if 'parameters' in provdict:
+                params = {k: str(provdict['parameters'][k]) for k in provdict['parameters']}
+                par = pdoc.entity(act_id + '_parameters', other_attributes=params)
+                par.add_attributes({'prov:type': 'Parameters'})
+                act.used(par, attributes={'prov:type': 'Setup'})
+            # usage
+            if 'used_id' in provdict:
+                ent_id = 'id:' + str(provdict['used_id'])
+                if ent_id in records:
+                    ent = records[ent_id]
+                else:
+                    ent = pdoc.entity(ent_id)
+                    records[ent_id] = ent
+                if 'entity_type' in provdict:
+                    ent.add_attributes({'prov:type': provdict['entity_type']})
+                if 'entity_value' in provdict:
+                    ent.add_attributes({'prov:value': str(provdict['entity_value'])})
+                if 'entity_location' in provdict:
+                    ent.add_attributes({'prov:location': str(provdict['entity_location'])})
+                rol = provdict.get('used_role', None)
+                # if rol:
+                #     ent.add_attributes({'prov:label': rol})
+                act.used(ent_id, attributes={'prov:role': rol})
+            # generation
+            if 'generated_id' in provdict:
+                ent_id = 'id:' + str(provdict['generated_id'])
+                if ent_id in records:
+                    ent = records[ent_id]
+                else:
+                    ent = pdoc.entity(ent_id)
+                    records[ent_id] = ent
+                if 'entity_type' in provdict:
+                    ent.add_attributes({'prov:type': provdict['entity_type']})
+                if 'entity_value' in provdict:
+                    ent.add_attributes({'prov:value': str(provdict['entity_value'])})
+                if 'entity_location' in provdict:
+                    ent.add_attributes({'prov:location': str(provdict['entity_location'])})
+                rol = provdict.get('generated_role', None)
+                # if rol:
+                #     ent.add_attributes({'prov:label': rol})
+                ent.wasGeneratedBy(act, attributes={'prov:role': rol})
+        # entity
+        if 'entity_id' in provdict:
+            ent_id = 'id:' + str(provdict['entity_id'])
+            if ent_id in records:
+                ent = records[ent_id]
+            else:
+                ent = pdoc.entity(ent_id)
+                records[ent_id] = ent
+            if 'entity_name' in provdict:
+                ent.add_attributes({'prov:label': provdict['entity_name']})
+            if 'entity_type' in provdict:
+                ent.add_attributes({'prov:type': provdict['entity_type']})
+            if 'entity_value' in provdict:
+                ent.add_attributes({'prov:value': str(provdict['entity_value'])})
+            if 'entity_location' in provdict:
+                ent.add_attributes({'prov:location': str(provdict['entity_location'])})
+            # member
+            if 'member_id' in provdict:
+                mem_id = 'id:' + str(provdict['member_id'])
+                if mem_id in records:
+                    mem = records[mem_id]
+                else:
+                    mem = pdoc.entity(mem_id)
+                    records[mem_id] = mem
+                if 'member_type' in provdict:
+                    mem.add_attributes({'prov:type': provdict['member_type']})
+                if 'member_value' in provdict:
+                    mem.add_attributes({'prov:value': str(provdict['member_value'])})
+                if 'member_location' in provdict:
+                    ent.add_attributes({'prov:location': str(provdict['member_location'])})
+                ent.hadMember(mem)
+        # agent
+    return pdoc
 
 
 def get_file_hash(path):
@@ -166,11 +288,13 @@ def get_id(value, description):
     if etype == 'PythonObject':
         # value is an object in memory
         try:
-            return hash(value)
+            # identify with the hash of the object
+            return abs(hash(value))
         except TypeError:
-            return id(value)
+            # otherwise use id(), i.e. its memory address
+            return abs(id(value))
     if 'File' in etype:
-        # value is a path to a file
+        # value is a path to a file, get the hash of this file
         return get_file_hash(value)
     if etype == 'DataStore':
         # value is a path to a Gammapy data store, get full path? get hash of index ?
