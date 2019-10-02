@@ -1,6 +1,7 @@
 ---
 #
 # Definition of ActivityDescription and EntityDescription
+#
 # activities:
 #   <activity_name>:
 #     description:
@@ -21,6 +22,11 @@
 #           list:      # Python list of the members (e.g. observations.list)
 #           location:  # for each object in list, location of the entity
 #                      # (e.g. obs_id for list[*].obs_id)
+#      filter:
+#       - criteria:
+#         usage: []
+#         generation: []
+#
 # entityTypes:
 #   <entity_name>:
 #     description:
@@ -35,14 +41,14 @@ activities:
             to criteria defined in the configuration"
         parameters:
             - name: datastore
-              description: "DataStore path"
+              description: "DataStore path as string"
               location: settings.observations.datastore
             - name: filters
               description: "Filter criteria to select observations"
               location: settings.observations.filters
         usage:
             - role: datastore
-              description: "DataStore object"
+              description: "DataStore object file"
               entityType: DataStore
               location: settings.observations.datastore
               # from_parameter:
@@ -82,32 +88,34 @@ activities:
               description: "Max offset to produce the dataset cutout"
               location: settings.datasets.offset-max
             - name: psf-kernel-radius
-              description: "Max offset to produce the dataset cutout"
-              location: settings.datasets.offset-max
+              description: "Radius of PSF kernel used"
+              location: settings.datasets.psf-kernel-radius
         usage:
             - role: observations
               description: "Observations selected"
               entityType: PythonObject
               location: observations
-
+            - role: exclusion_mask
+              description: "Exclusion mask for spectral background estimation"
+              entityType: File
+              location: settings.datasets.background.exclusion_mask.filename
         generation:
+            - role: background_estimator
+              description: "ReflectedRegionsBackgroundEstimator object"
+              entityType: ReflectedRegionsBackgroundEstimator
+              location: background_estimator
+            - role: spectrum_extraction
+              description: "SpectrumExtraction object"
+              entityType: SpectrumExtraction
+              location: extraction
             - role: datasets
-              description: "Datasets produced"
+              description: "Datasets produced in the reduction process"
               entityType: PythonObject
               location: datasets
-
-#       activity execution may depend on some parameters
-#       filter:
-#            - criteria:
-#              "settings.datasets.dataset-type == 'SpectrumDatasetOnOff' and
-#              settings.datasets.background.background_estimator == 'reflected'"
-#              usage: [spectrum_observations]
-#              generation: [model, fit_result]
-#            - criteria:
-#              "settings.datasets.dataset-type == 'MapDataset'"
-#              usage: [spectrum_observations]
-#              generation: [model, fit_result]
-
+              has_members:
+                  entityType: Dataset
+                  list: datasets.datasets
+                  location: name
 
     set_model:
         description:
@@ -188,13 +196,22 @@ entityTypes:
         description: "A Python variable in memory"
     DataStore:
         description: "A directory pointing to a collection of files on the disk"
-        path: $GAMMAPY_DATA/hess-dl3-dr1     # remove ???
         url: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
     Observation:
         description: "An observation from the DataStore with a unique obs_id"
         url: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
+    Dataset:
+        description: "A dataset: spectrum, map or flux-points"
+        url: https://docs.gammapy.org/dev/api/gammapy.modeling.Dataset
+    SpectrumExtraction:
+        description: "A SpectrumExtraction object"
+        url: https://docs.gammapy.org/dev/api/gammapy.spectrum.SpectrumExtraction
+    ReflectedRegionsBackgroundEstimator:
+        description: "A ReflectedRegionsBackgroundEstimator object"
+        url: https://docs.gammapy.org/dev/api/gammapy.spectrum.ReflectedRegionsBackgroundEstimator
     File:
         description: "A File on the disk"
     FITSFile:
         description: "A FITS File on the disk"
         contentType: application/fits
+
