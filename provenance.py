@@ -98,6 +98,8 @@ def log_is_active(analysis, activity):
     # active = Provenance()
     if activity not in definition["activities"].keys():
         active = False
+    if not analysis:
+        active = False
     # if not analysis.settings["general"]["logging"]["level"] == "PROV":
     #   active = False
     return active
@@ -126,14 +128,15 @@ def log_parameters(analysis, activity, activity_id):
             if parameter_value:
                 parameters[parameter["name"]] = parameter_value
     log_record = {"activity_id": activity_id, "parameters": parameters}
+    # use filter if defined
     if parameters:
         log_prov(log_record)
 
 
 def log_usage(analysis, activity, activity_id):
     for usage in definition["activities"][activity]["usage"]:
-        # if 'from_parameter' in usage:
-        #     for k, v in usage['from_parameter']:
+        # if "from_parameter" in usage:
+        #     for k, v in usage["from_parameter"]:
         #         usage[k] = params[v]
         usage_id = ""
         usage_role = ""
@@ -154,6 +157,7 @@ def log_usage(analysis, activity, activity_id):
             if usage['entityType'] != 'PythonObject':
                 if usage_entity is not usage_id:  # ?????
                     log_record.update({"entity_location": usage_entity})
+        # use filter if defined
         if usage_id:
             log_prov(log_record)
 
@@ -179,6 +183,7 @@ def log_generation(analysis, activity, activity_id):
             if generation['entityType'] != 'PythonObject':
                 if generated_entity is not generated_id:  # ?????
                     log_record.update({"entity_location": generated_entity})
+        # use filter if defined
         if generated_id:
             log_prov(log_record)
 
@@ -188,6 +193,8 @@ def log_generation(analysis, activity, activity_id):
             generated_list = get_nested_value(
                 analysis, generation["has_members"]["list"]
             )
+            if not generated_list:
+                return False
             for element in generated_list:
                 element_val = get_nested_value(element, generation["has_members"]["location"])
                 element_id = get_entity_id(element_val, generation["has_members"])
