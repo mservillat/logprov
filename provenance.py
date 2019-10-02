@@ -210,27 +210,14 @@ def log_prov(prov_dict):
 
 def read_logprov(logname, start=None, end=None):
     """ Read a list of provenance dictionaries from the log"""
-    provlist = []
-    if start:
-        startdt = datetime.datetime.fromisoformat(start)
-    if end:
-        enddt = datetime.datetime.fromisoformat(start)
-    provlist = []
+    prov_list = []
     with open(logname, 'r') as f:
         for l in f.readlines():
             if PROV_PREFIX in l:
-                ll = l.split(PROV_PREFIX)
-                provstr = ll.pop()
-                provdt = datetime.datetime.fromisoformat(ll.pop())
-                keep = True
-                if start and provdt < startdt:
-                    keep = False
-                if end and provdt > enddt:
-                    keep = False
-                if keep:
-                    provdict = yaml.safe_load(provstr)
-                    provlist.append(provdict)
-    return provlist
+                prov_str = l.split(PROV_PREFIX).pop()
+                prov_dict = yaml.safe_load(prov_str)
+                prov_list.append(prov_dict)
+    return prov_list
 
 
 def get_file_hash(path):
@@ -258,14 +245,6 @@ def get_entity_id(value, description):
     entity_types = definition["entityTypes"]
     if entity_type not in entity_types:
         log.warning(f"{PROV_PREFIX}Entity type {entity_type} not found in definitions")
-    if entity_type == "PythonObject":
-        # value is an object in memory
-        try:
-            # identify with the hash of the object
-            return abs(hash(value))
-        except TypeError:
-            # otherwise use id() i.e. its memory address
-            return abs(id(value))
     if "File" in entity_type:
         # value is a path to a file .- get the hash of this file
         return get_file_hash(value)
@@ -273,8 +252,13 @@ def get_entity_id(value, description):
         # value is a path to a Gammapy data store, get full path? get hash of index?
         # return os.path.abspath(os.path.expandvars(value))
         return get_file_hash(os.path.join(value, "obs-index.fits.gz"))
-    # if no specific way to get id, use value as the id
-    return value
+    # if no specific way to get id, use value try/except below
+    try:
+        # identify with the hash of the object
+        return abs(hash(value))
+    except TypeError:
+        # otherwise use id() i.e. its memory address
+        return abs(id(value))
 
 
 def get_nested_value(nested, branch):
