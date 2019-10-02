@@ -154,9 +154,9 @@ def log_usage(analysis, activity, activity_id):
         }
         if "entityType" in usage:
             log_record.update({"entity_type": usage['entityType']})
-            if usage['entityType'] != 'PythonObject':
-                if usage_entity is not usage_id:  # ?????
-                    log_record.update({"entity_location": usage_entity})
+            # if usage['entityType'] != 'PythonObject':
+            #     if usage_entity is not usage_id:  # ?????
+            #         log_record.update({"entity_location": usage_entity})
         # use filter if defined
         if usage_id:
             log_prov(log_record)
@@ -180,9 +180,9 @@ def log_generation(analysis, activity, activity_id):
         }
         if "entityType" in generation:
             log_record.update({"entity_type": generation['entityType']})
-            if generation['entityType'] != 'PythonObject':
-                if generated_entity is not generated_id:  # ?????
-                    log_record.update({"entity_location": generated_entity})
+            # if generation['entityType'] != 'PythonObject':
+            #     if generated_entity is not generated_id:  # ?????
+            #         log_record.update({"entity_location": generated_entity})
         # use filter if defined
         if generated_id:
             log_prov(log_record)
@@ -204,9 +204,9 @@ def log_generation(analysis, activity, activity_id):
                 }
                 if "entityType" in generation["has_members"]:
                     log_record.update({"member_type": generation["has_members"]['entityType']})
-                    if generation["has_members"]['entityType'] != 'PythonObject':
-                        if element_val is not element_id:  # ?????
-                            log_record.update({"member_location": element_val})
+                    # if generation["has_members"]['entityType'] != 'PythonObject':
+                    #     if element_val is not element_id:  # ?????
+                    #         log_record.update({"member_location": element_val})
                 log_prov(log_record)
 
 
