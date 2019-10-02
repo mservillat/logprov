@@ -54,7 +54,7 @@ activities:
               # from_parameter:
               #    location: datastore
         generation:
-            - role: observations
+            - role: observations selected
               description: "Observations selected"
               entityType: PythonObject
               location: observations
@@ -91,7 +91,7 @@ activities:
               description: "Radius of PSF kernel used"
               location: settings.datasets.psf-kernel-radius
         usage:
-            - role: observations
+            - role: observations used in reduction process
               description: "Observations selected"
               entityType: PythonObject
               location: observations
@@ -100,15 +100,15 @@ activities:
               entityType: File
               location: settings.datasets.background.exclusion_mask.filename
         generation:
-            - role: background_estimator
+            - role: background estimator
               description: "ReflectedRegionsBackgroundEstimator object"
               entityType: ReflectedRegionsBackgroundEstimator
               location: background_estimator
-            - role: spectrum_extraction
+            - role: spectrum extraction
               description: "SpectrumExtraction object"
               entityType: SpectrumExtraction
               location: extraction
-            - role: datasets
+            - role: reduced datasets
               description: "Datasets produced in the reduction process"
               entityType: PythonObject
               location: datasets
@@ -123,41 +123,41 @@ activities:
             and attach it to datasets"
         parameters:
             - name: model
+              description: "Model description in YAML format as string"
               location: model
             - name: filename
+              description: "Filename and path with the YAML model description"
               location: filename
         usage:
-            - role: spectrum_observations
+            - role: reduced datasets
+              description: "Datasets produced in the reduction process"
               entityType: PythonObject
-              location: extraction.spectrum_observations
-        generation:  # found in self
-            - role: fit_result
+              location: datasets
+        generation:
+            - role: model
+              entityType: SkyModel
+              location: model
+            - role: datasets with model
+              description: "Datasets with model attached"
               entityType: PythonObject
-              location: fit_result
-
+              location: datasets
 
     run_fit:
-        description: "Fitting reduced data sets to model."
-        parameters:  # found in settings, or as arguments to the method
-            - name: background_estimator
-              location: settings.reduction.background.background_estimator
-            - name: data_reducer
-              location: settings.reduction.data_reducer
-            - name: min
-              location: settings.fit.fit_range.min
-            - name: max
-              location: settings.fit.fit_range.max
-            - name: model
-              location: settings.model
-            - name: optimize_opts
-              location: optimize_opts  # arg to method...
-        usage:  # found in self
-            - role: spectrum_observations
+        description: "Fitting reduced data sets to model"
+        parameters:
+            - name: fit_range
+              location: settings.fit.range
+        usage:
+            - role: datasets with model
+              description: "Datasets to fit"
               entityType: PythonObject
-              location: extraction.spectrum_observations
-        generation:  # found in self
+              location: datasets
+        generation:
+            - role: fit
+              entityType: Fit
+              location: fit
             - role: fit_result
-              entityType: PythonObject
+              entityType: FitResult
               location: fit_result
 
 
@@ -186,7 +186,7 @@ activities:
               location: flux_points_dataset
 
 
-# track entities with an id:
+# track entities with an id
 # .uuid in the object
 # hash? __hash__, quasi unique, but per session
 # id()? but memory allocation, so may not be unique
@@ -209,9 +209,17 @@ entityTypes:
     ReflectedRegionsBackgroundEstimator:
         description: "A ReflectedRegionsBackgroundEstimator object"
         url: https://docs.gammapy.org/dev/api/gammapy.spectrum.ReflectedRegionsBackgroundEstimator
+    SkyModel:
+        description: "A generic SkyModel"
+        url: https://docs.gammapy.org/dev/api/gammapy.modeling.models.SkyModelBase
+    Fit:
+        description: "A Fit object"
+        url: https://docs.gammapy.org/dev/api/gammapy.modeling.Fit
+    Fit:
+        description: "A FitResult object"
+        url: https://docs.gammapy.org/dev/api/gammapy.modeling.FitResult
     File:
         description: "A File on the disk"
     FITSFile:
         description: "A FITS File on the disk"
         contentType: application/fits
-
