@@ -56,7 +56,7 @@ activities:
         generation:
             - role: observations selected
               description: "Observations selected"
-              entityType: PythonObject
+              entityType: Observations
               location: observations
               has_members:
                   entityType: Observation
@@ -93,7 +93,7 @@ activities:
         usage:
             - role: observations used in reduction process
               description: "Observations selected"
-              entityType: PythonObject
+              entityType: Observations
               location: observations
             - role: exclusion_mask
               description: "Exclusion mask for spectral background estimation"
@@ -110,7 +110,7 @@ activities:
               location: extraction
             - role: reduced datasets
               description: "Datasets produced in the reduction process"
-              entityType: PythonObject
+              entityType: Datasets
               location: datasets
               has_members:
                   entityType: Dataset
@@ -124,14 +124,14 @@ activities:
         parameters:
             - name: model
               description: "Model description in YAML format as string"
-              location: model
+              location: args.model
             - name: filename
               description: "Filename and path with the YAML model description"
-              location: filename
+              location: args.filename
         usage:
             - role: reduced datasets
               description: "Datasets produced in the reduction process"
-              entityType: PythonObject
+              entityType: Datasets
               location: datasets
         generation:
             - role: model
@@ -139,7 +139,7 @@ activities:
               location: model
             - role: datasets with model
               description: "Datasets with model attached"
-              entityType: PythonObject
+              entityType: Datasets
               location: datasets
 
     run_fit:
@@ -150,7 +150,7 @@ activities:
         usage:
             - role: datasets with model
               description: "Datasets to fit"
-              entityType: PythonObject
+              entityType: Datasets
               location: datasets
         generation:
             - role: fit
@@ -160,29 +160,26 @@ activities:
               entityType: FitResult
               location: fit_result
 
-
     get_flux_points:
         description: "Calculate flux points."
         parameters:
-            - name: data_reducer
-              location: settings.reduction.data_reducer
-            - name: filters
-              location: settings.observations.filters
+            - name: source
+              location: args.source
             - name: fp_binning
               location: settings.flux-points.fp_binning
         usage:
             - role: datasets
-              entityType: PythonObject
+              entityType: Datasets
               location: dataset
             - role: model
-              entityType: PythonObject
+              entityType: SkyModel
               location: model
-            - role: fit_results
-              entityType: PythonObject
+            - role: fit results
+              entityType: FitResult
               location: fit_result
         generation:
-            - role: flux_points_dataset
-              entityType: PythonObject
+            - role: calculated flux points dataset
+              entityType: FluxPointsDataset
               location: flux_points_dataset
 
 
@@ -197,12 +194,18 @@ entityTypes:
     DataStore:
         description: "A directory pointing to a collection of files on the disk"
         url: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
+    Observations:
+        description: "A list of observations"
+        url: https://docs.gammapy.org/dev/api/gammapy.data.Observations
     Observation:
         description: "An observation from the DataStore with a unique obs_id"
         url: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
     Dataset:
         description: "A dataset: spectrum, map or flux-points"
         url: https://docs.gammapy.org/dev/api/gammapy.modeling.Dataset
+    Datasets:
+        description: "A list of datasets"
+        url: https://docs.gammapy.org/dev/api/gammapy.modeling.Datasets
     SpectrumExtraction:
         description: "A SpectrumExtraction object"
         url: https://docs.gammapy.org/dev/api/gammapy.spectrum.SpectrumExtraction
@@ -215,9 +218,12 @@ entityTypes:
     Fit:
         description: "A Fit object"
         url: https://docs.gammapy.org/dev/api/gammapy.modeling.Fit
-    Fit:
+    FitResult:
         description: "A FitResult object"
         url: https://docs.gammapy.org/dev/api/gammapy.modeling.FitResult
+    FluxPointsDataset:
+        description: "A FluxPointsDataset object"
+        url: https://docs.gammapy.org/dev/api/gammapy.spectrum.FluxPointsDataset
     File:
         description: "A File on the disk"
     FITSFile:
