@@ -215,15 +215,31 @@ def log_prov(prov_dict):
     log.info("{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict))
 
 
-def read_logprov(logname, start=None, end=None):
+def read_prov(logname, start=None, end=None):
     """ Read a list of provenance dictionaries from the log"""
+    if start:
+        start_dt = datetime.datetime.fromisoformat(start)
+    if end:
+        end_dt = datetime.datetime.fromisoformat(start)
     prov_list = []
     with open(logname, 'r') as f:
         for l in f.readlines():
             if PROV_PREFIX in l:
-                prov_str = l.split(PROV_PREFIX).pop()
-                prov_dict = yaml.safe_load(prov_str)
-                prov_list.append(prov_dict)
+                ll = l.split(PROV_PREFIX)
+                prov_str = ll.pop()
+                try:
+                    prov_dt = datetime.datetime.fromisoformat(ll.pop())
+                except ValueError as e:
+                    prov_dt = None
+                keep = True
+                if prov_dt:
+                    if start and prov_dt < start_dt:
+                        keep = False
+                    if end and prov_dt > end_dt:
+                        keep = False
+                if keep:
+                    prov_dict = yaml.safe_load(prov_str)
+                    prov_list.append(prov_dict)
     return prov_list
 
 
