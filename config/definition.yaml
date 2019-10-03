@@ -51,8 +51,6 @@ activities:
               description: "DataStore object file"
               entityType: DataStore
               location: settings.observations.datastore
-              # from_parameter:
-              #    location: datastore
         generation:
             - role: observations selected
               description: "Observations selected"
@@ -124,34 +122,40 @@ activities:
         parameters:
             - name: model
               description: "Model description in YAML format as string"
-              location: args.model
+              location: kwargs.model
             - name: filename
               description: "Filename and path with the YAML model description"
-              location: args.filename
+              location: kwargs.filename
         usage:
-            - role: reduced datasets
-              description: "Datasets produced in the reduction process"
-              entityType: Datasets
-              location: datasets
+            - role: model_file
+              entityType: YAMLFile
+              location: kwargs.filename
+#            - role: reduced datasets
+#              description: "Datasets produced in the reduction process"
+#              entityType: Datasets
+#              location: datasets
         generation:
             - role: model
               entityType: SkyModel
               location: model
-            - role: datasets with model
-              description: "Datasets with model attached"
-              entityType: Datasets
-              location: datasets
+#            - role: datasets with model
+#              description: "Datasets with model attached"
+#              entityType: Datasets
+#              location: datasets
 
     run_fit:
         description: "Fitting reduced data sets to model"
         parameters:
             - name: fit_range
-              location: settings.fit.range
+              location: settings.fit.fit_range
         usage:
             - role: datasets with model
               description: "Datasets to fit"
               entityType: Datasets
               location: datasets
+            - role: model
+              entityType: SkyModel
+              location: model
         generation:
             - role: fit
               entityType: Fit
@@ -170,17 +174,17 @@ activities:
         usage:
             - role: datasets
               entityType: Datasets
-              location: dataset
+              location: datasets
             - role: model
               entityType: SkyModel
               location: model
-            - role: fit results
+            - role: fit_result
               entityType: FitResult
               location: fit_result
         generation:
             - role: calculated flux points dataset
               entityType: FluxPointsDataset
-              location: flux_points_dataset
+              location: flux_points
 
 
 # track entities with an id
@@ -229,3 +233,6 @@ entityTypes:
     FITSFile:
         description: "A FITS File on the disk"
         contentType: application/fits
+    YAMLFile:
+        description: "A YAML File on the disk"
+        contentType: application/x-yaml
