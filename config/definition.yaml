@@ -7,21 +7,22 @@
 #     description:
 #     parameters:
 #       - name:
-#         location:    # name of the Python variable
+#         description:
+#         value:       # Python variable that contains the parameter value
 #                      # (maybe be nested in an object or dict)
 #     usage/generation:
 #       - role:
 #         description:
 #         entityType:
-#         location:    # PythonObject or variable containing
-#                      # a valid path to a File/DataStore
-#         from_parameter:
-#           location:  # location is the value contained in
-#                      # the pointed parameter (--> parameters.name)
+#         location:    # Python variable that contains the location of the entity
+#                      #  (e.g. a valid path to a File/DataStore)
+#         value:       # Python variable that contains the value of the entity
+#         id:          # Python variable that contains the id of the entity
 #         has_members:
 #           list:      # Python list of the members (e.g. observations.list)
-#           location:  # for each object in list, location of the entity
-#                      # (e.g. obs_id for list[*].obs_id)
+#           entityType:
+#           location/value/id:
+#
 #      filter:
 #       - criteria:
 #         usage: []
@@ -42,10 +43,10 @@ activities:
         parameters:
             - name: datastore
               description: "DataStore path as string"
-              location: settings.observations.datastore
+              value: settings.observations.datastore
             - name: filters
               description: "Filter criteria to select observations"
-              location: settings.observations.filters
+              value: settings.observations.filters
         usage:
             - role: datastore
               description: "DataStore object file"
@@ -55,44 +56,45 @@ activities:
             - role: observations selected
               description: "Observations selected"
               entityType: Observations
-              location: observations
+              value: observations
               has_members:
                   entityType: Observation
                   list: observations.list
-                  location: obs_id
+                  id: obs_id
+                  namespace: ""
 
     get_datasets:
         description: "Produce reduced datasets"
         parameters:
             - name: stack-datasets
               description: "Stack datasets flag"
-              location: settings.datasets.stack-datasets
+              value: settings.datasets.stack-datasets
             - name: dataset-type
               description: "Datasets type"
-              location: settings.datasets.dataset-type
+              value: settings.datasets.dataset-type
             - name: geom
               description: "Geometry parameters"
-              location: settings.datasets.geom
+              value: settings.datasets.geom
             - name: geom-irf
               description: "Geometry parameters in IRFs"
-              location: settings.datasets.geom-irf
+              value: settings.datasets.geom-irf
             - name: background
               description: "Background parameters"
-              location: settings.datasets.background
+              value: settings.datasets.background
             - name: containment_correction
               description: "Containment_correction used in spectrum extraction"
-              location: settings.datasets.containment_correction
+              value: settings.datasets.containment_correction
             - name: offset-max
               description: "Max offset to produce the dataset cutout"
-              location: settings.datasets.offset-max
+              value: settings.datasets.offset-max
             - name: psf-kernel-radius
               description: "Radius of PSF kernel used"
-              location: settings.datasets.psf-kernel-radius
+              value: settings.datasets.psf-kernel-radius
         usage:
-            - role: observations used in reduction process
+            - role: observations
               description: "Observations selected"
               entityType: Observations
-              location: observations
+              value: observations
             - role: exclusion_mask
               description: "Exclusion mask for spectral background estimation"
               entityType: File
@@ -101,19 +103,19 @@ activities:
             - role: background estimator
               description: "ReflectedRegionsBackgroundEstimator object"
               entityType: ReflectedRegionsBackgroundEstimator
-              location: background_estimator
+              value: background_estimator
             - role: spectrum extraction
               description: "SpectrumExtraction object"
               entityType: SpectrumExtraction
-              location: extraction
-            - role: reduced datasets
+              value: extraction
+            - role: reduced_datasets
               description: "Datasets produced in the reduction process"
               entityType: Datasets
-              location: datasets
-              has_members:
-                  entityType: Dataset
-                  list: datasets.datasets
-                  location: name
+              value: datasets
+#              has_members:
+#                  entityType: Dataset
+#                  list: datasets.datasets
+#                  id: name
 
     set_model:
         description:
@@ -122,10 +124,10 @@ activities:
         parameters:
             - name: model
               description: "Model description in YAML format as string"
-              location: kwargs.model
+              value: kwargs.model
             - name: filename
               description: "Filename and path with the YAML model description"
-              location: kwargs.filename
+              value: kwargs.filename
         usage:
             - role: model_file
               entityType: YAMLFile
@@ -137,7 +139,7 @@ activities:
         generation:
             - role: model
               entityType: SkyModel
-              location: model
+              value: model
 #            - role: datasets with model
 #              description: "Datasets with model attached"
 #              entityType: Datasets
@@ -147,44 +149,44 @@ activities:
         description: "Fitting reduced data sets to model"
         parameters:
             - name: fit_range
-              location: settings.fit.fit_range
+              value: settings.fit.fit_range
         usage:
-            - role: datasets with model
+            - role: datasets
               description: "Datasets to fit"
               entityType: Datasets
-              location: datasets
+              value: datasets
             - role: model
               entityType: SkyModel
-              location: model
+              value: model
         generation:
             - role: fit
               entityType: Fit
-              location: fit
+              value: fit
             - role: fit_result
               entityType: FitResult
-              location: fit_result
+              value: fit_result
 
     get_flux_points:
         description: "Calculate flux points."
         parameters:
             - name: source
-              location: args.source
+              value: args.source
             - name: fp_binning
-              location: settings.flux-points.fp_binning
+              value: settings.flux-points.fp_binning
         usage:
             - role: datasets
               entityType: Datasets
-              location: datasets
+              value: datasets
             - role: model
               entityType: SkyModel
-              location: model
+              value: model
             - role: fit_result
               entityType: FitResult
-              location: fit_result
+              value: fit_result
         generation:
             - role: calculated flux points dataset
               entityType: FluxPointsDataset
-              location: flux_points
+              value: flux_points
 
 
 # track entities with an id
@@ -197,37 +199,37 @@ entityTypes:
         description: "A Python variable in memory"
     DataStore:
         description: "A directory pointing to a collection of files on the disk"
-        url: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
+        docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
     Observations:
         description: "A list of observations"
-        url: https://docs.gammapy.org/dev/api/gammapy.data.Observations
+        docurl: https://docs.gammapy.org/dev/api/gammapy.data.Observations
     Observation:
         description: "An observation from the DataStore with a unique obs_id"
-        url: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
+        docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
     Dataset:
         description: "A dataset: spectrum, map or flux-points"
-        url: https://docs.gammapy.org/dev/api/gammapy.modeling.Dataset
+        docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Dataset
     Datasets:
         description: "A list of datasets"
-        url: https://docs.gammapy.org/dev/api/gammapy.modeling.Datasets
+        docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Datasets
     SpectrumExtraction:
         description: "A SpectrumExtraction object"
-        url: https://docs.gammapy.org/dev/api/gammapy.spectrum.SpectrumExtraction
+        docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.SpectrumExtraction
     ReflectedRegionsBackgroundEstimator:
         description: "A ReflectedRegionsBackgroundEstimator object"
-        url: https://docs.gammapy.org/dev/api/gammapy.spectrum.ReflectedRegionsBackgroundEstimator
+        docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.ReflectedRegionsBackgroundEstimator
     SkyModel:
         description: "A generic SkyModel"
-        url: https://docs.gammapy.org/dev/api/gammapy.modeling.models.SkyModelBase
+        docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.models.SkyModelBase
     Fit:
         description: "A Fit object"
-        url: https://docs.gammapy.org/dev/api/gammapy.modeling.Fit
+        docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Fit
     FitResult:
         description: "A FitResult object"
-        url: https://docs.gammapy.org/dev/api/gammapy.modeling.FitResult
+        docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.FitResult
     FluxPointsDataset:
         description: "A FluxPointsDataset object"
-        url: https://docs.gammapy.org/dev/api/gammapy.spectrum.FluxPointsDataset
+        docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.FluxPointsDataset
     File:
         description: "A File on the disk"
     FITSFile:
