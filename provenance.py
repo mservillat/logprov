@@ -131,8 +131,8 @@ def log_finish_activity(activity_id, end):
 def log_parameters(analysis, activity, activity_id):
     parameters = {}
     for parameter in definition["activities"][activity]["parameters"]:
-        if "name" in parameter and "location" in parameter:
-            parameter_value = get_nested_value(analysis, parameter["location"])
+        if "name" in parameter and "value" in parameter:
+            parameter_value = get_nested_value(analysis, parameter["value"])
             # parameter_value is found
             if parameter_value:
                 parameters[parameter["name"]] = parameter_value
@@ -143,80 +143,102 @@ def log_parameters(analysis, activity, activity_id):
 
 
 def log_usage(analysis, activity, activity_id):
-    for usage in definition["activities"][activity]["usage"]:
-        # if "from_parameter" in usage:
-        #     for k, v in usage["from_parameter"]:
-        #         usage[k] = params[v]
-        usage_id = ""
-        usage_role = ""
-        usage_entity = ""
-        if "location" in usage:
-            usage_entity = get_nested_value(analysis, usage["location"])
-        # usage_entity is found
-        if usage_entity:
-            usage_role = usage.get("role", usage["location"])
-            usage_id = get_entity_id(usage_entity, usage)
-        log_record = {
-            "activity_id": activity_id,
-            "used_role": usage_role,
-            "used_id": usage_id,
-        }
-        if "entityType" in usage:
-            log_record.update({"entity_type": usage['entityType']})
-            # if usage['entityType'] != 'PythonObject':
-            #     if usage_entity is not usage_id:  # ?????
-            #         log_record.update({"entity_location": usage_entity})
-        # use filter if defined
-        if usage_id:
+    usage_list = definition["activities"][activity]["usage"]
+    for item in usage_list:
+        item_id = ""
+        item_role = ""
+        item_value = ""
+        item_location = ""
+        if "id" in item:
+            item_id = get_nested_value(analysis, item["id"])
+        if "value" in item:
+            item_value = get_nested_value(analysis, item["value"])
+        if "location" in item:
+            item_location = get_nested_value(analysis, item["location"])
+            if not item_value:
+                item_value = item_location
+        if item_value:
+            item_role = item.get("role", item_value)
+            if not item_id:
+                item_id = get_entity_id(item_value, item)
+        if item_id:
+            log_record = {
+                "activity_id": activity_id,
+                "used_role": item_role,
+                "used_id": item_id,
+            }
+            if "entityType" in item:
+                log_record.update({"entity_type": item['entityType']})
+            if item_location:
+                log_record.update({"entity_location": item_location})
+            # use filter if defined
             log_prov(log_record)
 
 
 def log_generation(analysis, activity, activity_id):
-    for generation in definition["activities"][activity]["generation"]:
-        generated_id = ""
-        generated_role = ""
-        generated_entity = ""
-        if "location" in generation:
-            generated_entity = get_nested_value(analysis, generation["location"])
-            # generated_entity is found
-        if generated_entity:
-            generated_role = generation.get("role", generation["location"])
-            generated_id = get_entity_id(generated_entity, generation)
-        log_record = {
-            "activity_id": activity_id,
-            "generated_role": generated_role,
-            "generated_id": generated_id,
-        }
-        if "entityType" in generation:
-            log_record.update({"entity_type": generation['entityType']})
-            # if generation['entityType'] != 'PythonObject':
-            #     if generated_entity is not generated_id:  # ?????
-            #         log_record.update({"entity_location": generated_entity})
-        # use filter if defined
-        if generated_id:
+    generation_list = definition["activities"][activity]["generation"]
+    for item in generation_list:
+        item_id = ""
+        item_role = ""
+        item_value = ""
+        item_location = ""
+        if "id" in item:
+            item_id = get_nested_value(analysis, item["id"])
+        if "value" in item:
+            item_value = get_nested_value(analysis, item["value"])
+        if "location" in item:
+            item_location = get_nested_value(analysis, item["location"])
+            if not item_value:
+                item_value = item_location
+        if item_value:
+            item_role = item.get("role", item_value)
+            if not item_id:
+                item_id = get_entity_id(item_value, item)
+        if item_id:
+            log_record = {
+                "activity_id": activity_id,
+                "generated_role": item_role,
+                "generated_id": item_id,
+            }
+            if "entityType" in item:
+                log_record.update({"entity_type": item['entityType']})
+            if item_location:
+                log_record.update({"entity_location": item_location})
+            # use filter if defined
             log_prov(log_record)
 
         # log members in generated entities
         # p.add_members()
-        if "has_members" in generation:
-            generated_list = get_nested_value(
-                analysis, generation["has_members"]["list"]
-            )
+        if "has_members" in item:
+            subitem = item["has_members"]
+            generated_list = get_nested_value(analysis, subitem["list"])
+            element_id = ""
+            element_value = ""
+            element_location = ""
             if not generated_list:
                 return False
             for element in generated_list:
-                element_val = get_nested_value(element, generation["has_members"]["location"])
-                element_id = get_entity_id(element_val, generation["has_members"])
-                log_record = {
-                    "entity_id": generated_id,
-                    "member_id": element_id,
-                }
-                if "entityType" in generation["has_members"]:
-                    log_record.update({"member_type": generation["has_members"]['entityType']})
-                    # if generation["has_members"]['entityType'] != 'PythonObject':
-                    #     if element_val is not element_id:  # ?????
-                    #         log_record.update({"member_location": element_val})
-                log_prov(log_record)
+                if "id" in subitem:
+                    element_id = get_nested_value(element, subitem["id"])
+                if "value" in subitem:
+                    element_value = get_nested_value(element, subitem["value"])
+                if "location" in subitem:
+                    element_location = get_nested_value(element, subitem["location"])
+                    if not element_value:
+                        element_value = element_location
+                if element_value:
+                    if not element_id:
+                        element_id = get_entity_id(element_value, item)
+                if element_id:
+                    log_record = {
+                        "entity_id": item_id,
+                        "member_id": element_id,
+                    }
+                    if "entityType" in item["has_members"]:
+                        log_record.update({"member_type": item["has_members"]['entityType']})
+                    if item_location:
+                        log_record.update({"member_location": element_location})
+                    log_prov(log_record)
 
 
 def log_prov(prov_dict):
