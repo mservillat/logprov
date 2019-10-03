@@ -67,23 +67,32 @@ def trace(func):
     def wrapper(self, *args, **kwargs):
         activity = func.__name__
         start = datetime.datetime.now().isoformat()
-        analysis = func(self, *args, **kwargs)
+        # log start activity
+        # p.start_activity(activity)
+        activity_id = abs(id(func) + id(start))     # Python memory id
+        log_start_activity(activity, activity_id, start)
+        try:
+            analysis = func(self, *args, **kwargs)
+        except:
+            # log error and end
+            raise
+        analysis.args = args
+        analysis.kwargs = kwargs
         end = datetime.datetime.now().isoformat()
         if not log_is_active(analysis, activity):
             return True
-        # log start activity
-        # p.start_activity(activity)
-        activity_id = abs(id(func)) + id(start)     # Python memory id
-        log_start_activity(activity, activity_id, start)
         # log parameters
         # p.add_parameters(parameters)
-        log_parameters(analysis, activity, activity_id)
+        if definition["activities"][activity]["parameters"]:
+            log_parameters(analysis, activity, activity_id)
         # log used entities
         # p.add_input_file("test.txt")
-        log_usage(analysis, activity, activity_id)
+        if definition["activities"][activity]["usage"]:
+            log_usage(analysis, activity, activity_id)
         # log generated entities and members
         # p.add_output_file("test.txt")
-        log_generation(analysis, activity, activity_id)
+        if definition["activities"][activity]["generation"]:
+            log_generation(analysis, activity, activity_id)
         # log finish activity
         # p.finish_activity(activity)
         log_finish_activity(activity_id, end)
