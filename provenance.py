@@ -295,25 +295,28 @@ def get_file_hash(path):
 
 def get_entity_id(value, description):
     """Helper function that gets the id of an entity, depending on its type."""
-    entity_type = description.get("entityType", None)
-    entity_types = definition["entityTypes"]
-    if entity_type not in entity_types:
-        log.warning(f"{PROV_PREFIX}Entity type {entity_type} not found in definitions")
+    entity_name = description.get("entityType", None)
+    entity_type = ""
+    entity_names = definition["entities"]
+    if entity_name and entity_name in entity_names:
+        entity_type = entity_names[entity_name].get("type", None)
+    else:
+        log.warning(f"{PROV_PREFIX}Entity {entity_name} not found in definitions")
+    if "FileCollection" in entity_type:
+        # value for e.g. DataStore is a path to a Gammapy data store, get full path? get hash of index?
+        index = entity_names[entity_name].get("index", "")
+        return get_file_hash(os.path.join(value, index))
     if "File" in entity_type:
         # value is a path to a file .- get the hash of this file
         return get_file_hash(value)
-    if entity_type == "DataStore":
-        # value is a path to a Gammapy data store, get full path? get hash of index?
-        # return os.path.abspath(os.path.expandvars(value))
-        return get_file_hash(os.path.join(value, "obs-index.fits.gz"))
-    # if no specific way to get id, use value try/except below
+    # if no specific way to get id, try hash() of python object, or id()
     try:
         # identify with the hash of the object
         return abs(hash(value))
     except TypeError:
         # otherwise use id() i.e. its memory address
         # rk: two different objects may use the same memory address, so use hash(entity_type) to avoid issues
-        return abs(id(value) + hash(entity_type))
+        return abs(id(value) + hash(entity_name))
 
 
 def get_nested_value(nested, branch):

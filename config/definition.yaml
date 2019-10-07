@@ -194,47 +194,63 @@ activities:
 # hash? __hash__, quasi unique, but per session
 # id()? but memory allocation, so may not be unique
 
-entityTypes:
+entities:
     PythonObject:
         description: "A Python variable in memory"
+        type: PythonObject
     DataStore:
         description: "A directory pointing to a collection of files on the disk"
         docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
+        type: FileCollection
+        index: "obs-index.fits.gz"
     Observations:
         description: "A list of observations"
         docurl: https://docs.gammapy.org/dev/api/gammapy.data.Observations
+        type: PythonObject
     Observation:
         description: "An observation from the DataStore with a unique obs_id"
         docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
+        type: File
     Dataset:
         description: "A dataset: spectrum, map or flux-points"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Dataset
+        type: PythonObject
     Datasets:
         description: "A list of datasets"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Datasets
+        type: PythonObject
     SpectrumExtraction:
         description: "A SpectrumExtraction object"
         docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.SpectrumExtraction
+        type: PythonObject
     ReflectedRegionsBackgroundEstimator:
         description: "A ReflectedRegionsBackgroundEstimator object"
         docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.ReflectedRegionsBackgroundEstimator
+        type: PythonObject
     SkyModel:
         description: "A generic SkyModel"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.models.SkyModelBase
+        type: PythonObject
     Fit:
         description: "A Fit object"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Fit
+        type: PythonObject
     FitResult:
         description: "A FitResult object"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.FitResult
+        type: PythonObject
     FluxPointsDataset:
         description: "A FluxPointsDataset object"
         docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.FluxPointsDataset
+        type: PythonObject
     File:
         description: "A File on the disk"
+        type: File
     FITSFile:
         description: "A FITS File on the disk"
         contentType: application/fits
+        type: File
     YAMLFile:
         description: "A YAML File on the disk"
         contentType: application/x-yaml
+        type: File
