@@ -295,7 +295,7 @@ def get_file_hash(path):
 
 def get_entity_id(value, description):
     """Helper function that gets the id of an entity, depending on its type."""
-    entity_type = description["entityType"]
+    entity_type = description.get("entityType", None)
     entity_types = definition["entityTypes"]
     if entity_type not in entity_types:
         log.warning(f"{PROV_PREFIX}Entity type {entity_type} not found in definitions")
@@ -312,7 +312,8 @@ def get_entity_id(value, description):
         return abs(hash(value))
     except TypeError:
         # otherwise use id() i.e. its memory address
-        return abs(id(value))
+        # rk: two different objects may use the same memory address, so use hash(entity_type) to avoid issues
+        return abs(id(value) + hash(entity_type))
 
 
 def get_nested_value(nested, branch):
