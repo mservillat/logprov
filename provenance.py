@@ -463,6 +463,20 @@ def provlist2provdoc(provlist):
     return pdoc
 
 
+def provdoc2svg(provdoc, filename):
+    from prov.dot import prov_to_dot
+    from pydotplus.graphviz import InvocationException
+    try:
+        dot = prov_to_dot(provdoc, use_labels=True, show_element_attributes=True, show_relation_attributes=True)
+        svg_content = dot.create(format="svg")
+    except InvocationException as e:
+        svg_content = ""
+        print('problem while creating svg content')
+    with open(filename, "wb") as f:
+        f.write(svg_content)
+
+
+
 # def trace_nested_value(nested, branch, type, activity_id):
 #     """Helper function that logs a specific value in a nested dictionary or class."""
 #     list_branch = branch.split(".")
