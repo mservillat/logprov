@@ -74,28 +74,30 @@ def trace(func):
         log_start_activity(activity, activity_id, start)
         try:
             analysis = func(self, *args, **kwargs)
-            session_id = abs(hash(analysis))
         except Exception as e:
             # log end and error
             end = datetime.datetime.now().isoformat()
             log_finish_activity(activity_id, end, status='ERROR', msg=str(e))
             raise
-        analysis.args = args
-        analysis.kwargs = kwargs
-        end = datetime.datetime.now().isoformat()
         if not log_is_active(analysis, activity):
             return True
+        end = datetime.datetime.now().isoformat()
+        analysis.args = args
+        analysis.kwargs = kwargs
         # log session and environment info
-        log_prov({"activity_id": activity_id, "session_id": session_id})
+        session_id = abs(hash(analysis))
         if not session_id in sessions:
             sessions.append(session_id)
             # log session start, environment and configfile
+            system = _get_system_provenance()
             log_record = {
                 "session_id": session_id,
-                "session_name": analysis.__class__,
+                "session_name": str(analysis.__class__).split("'")[1],
                 "startTime": start,
+                "system": system,
             }
             log_prov(log_record)
+        log_prov({"activity_id": activity_id, "in_session": session_id})
         # log parameters
         # p.add_parameters(parameters)
         log_parameters(analysis, activity, activity_id)
@@ -369,6 +371,19 @@ def provlist2provdoc(provlist):
     pdoc.add_namespace('id', 'id:')
     records = {}
     for provdict in provlist:
+        if 'session_id' in provdict:
+            sess_id = 'id:' + str(provdict['session_id'])
+            if sess_id in records:
+                sess = records[sess_id]
+            else:
+                sess = pdoc.entity(sess_id)
+                records[sess_id] = sess
+            sess.add_attributes({
+                'prov:label': provdict['session_name'],
+                'prov:type': "SystemEnvironment",
+                'prov:generatedAtTime': provdict['startTime'],
+                #'system': str(provdict['system']),
+            })
         # activity
         if 'activity_id' in provdict:
             act_id = 'id:' + str(provdict['activity_id']).replace('-','')
@@ -386,6 +401,10 @@ def provlist2provdoc(provlist):
             # activity end
             if 'endTime' in provdict:
                 act.set_time(endTime=datetime.datetime.fromisoformat(provdict['endTime']))
+            # in session?
+            if 'in_session' in provdict:
+                sess_id = 'id:' + str(provdict['in_session'])
+                pdoc.wasInfluencedBy(act_id, sess_id)  # , other_attributes={'prov:type': "Context"})
             # activity configuration
             if 'parameters' in provdict:
                 params = {k: str(provdict['parameters'][k]) for k in provdict['parameters']}
@@ -750,16 +769,16 @@ def _get_system_provenance():
             machine=platform.machine(),
             processor=platform.processor(),
             node=platform.node(),
-            version=platform.version(),
+            version=str(platform.version()),
             system=platform.system(),
             release=platform.release(),
-            libcver=platform.libc_ver(),
+            libcver=str(platform.libc_ver()),
             num_cpus=psutil.cpu_count(),
             boot_time=Time(psutil.boot_time(), format="unix").isot,
         ),
         python=dict(
             version_string=sys.version,
-            version=platform.python_version_tuple(),
+            version=platform.python_version(),
             compiler=platform.python_compiler(),
             implementation=platform.python_implementation(),
         ),
