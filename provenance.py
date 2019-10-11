@@ -89,11 +89,19 @@ def trace(func):
         if not session_id in sessions:
             sessions.append(session_id)
             # log session start, environment and configfile
+            session_name = ""
+            try:
+                session_name = str(analysis.__class__).split("'")[1]
+            except Exception as e:
+                log.warning("Cannot get session name")
+                pass
+            config = getattr(getattr(analysis, "config", None), "filename", "")
             system = _get_system_provenance()
             log_record = {
                 "session_id": session_id,
-                "session_name": str(analysis.__class__).split("'")[1],
+                "session_name": session_name,
                 "startTime": start,
+                "config": str(config),
                 "system": system,
             }
             log_prov(log_record)
