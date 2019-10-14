@@ -177,7 +177,7 @@ def log_usage(analysis, activity, activity_id):
                     "used_id": item_id,
                 }
                 if "entityType" in item:
-                    log_record.update({"entity_type": item['entityType']})
+                    log_record.update({"entity_type": item["entityType"]})
                 if item_location:
                     log_record.update({"entity_location": item_location})
                 # use filter if defined
@@ -211,7 +211,7 @@ def log_generation(analysis, activity, activity_id):
                     "generated_id": item_id,
                 }
                 if "entityType" in item:
-                    log_record.update({"entity_type": item['entityType']})
+                    log_record.update({"entity_type": item["entityType"]})
                 if item_location:
                     log_record.update({"entity_location": item_location})
                 # use filter if defined
@@ -245,6 +245,9 @@ def log_generation(analysis, activity, activity_id):
                         }
                         if "entityType" in item["has_members"]:
                             log_record.update({"member_type": item["has_members"]['entityType']})
+                            log_record.update(
+                                {"member_type": item["has_members"]["entityType"]}
+                            )
                         if item_location:
                             log_record.update({"member_location": element_location})
                         log_prov(log_record)
@@ -327,6 +330,7 @@ def get_nested_value(nested, branch):
 #
 #
 #
+
 
 def _get_system_provenance():
     """ return JSON string containing provenance for all things that are
