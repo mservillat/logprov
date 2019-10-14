@@ -66,27 +66,26 @@ def trace(func):
 
     @wraps(func)
     def wrapper(self, *args, **kwargs):
+
+        # activity execution
         activity = func.__name__
         start = datetime.datetime.now().isoformat()
-        # log start activity
-        # p.start_activity(activity)
-        activity_id = abs(id(func) + id(start))     # Python memory id
-        log_start_activity(activity, activity_id, start)
-        try:
-            analysis = func(self, *args, **kwargs)
-        except Exception as e:
-            # log end and error
-            end = datetime.datetime.now().isoformat()
-            log_finish_activity(activity_id, end, status='ERROR', msg=str(e))
-            raise
+        activity_id = abs(id(func) + id(start))
+        analysis = func(self, *args, **kwargs)
+        end = datetime.datetime.now().isoformat()
+
+        # no provenance logging
         if not log_is_active(analysis, activity):
             return True
-        end = datetime.datetime.now().isoformat()
+
+        # provenance logging only if activity ends properly
         analysis.args = args
         analysis.kwargs = kwargs
+        log_start_activity(activity, activity_id, start)
+
         # log session and environment info
         session_id = abs(hash(analysis))
-        if not session_id in sessions:
+        if session_id not in sessions:
             sessions.append(session_id)
             # log session start, environment and configfile
             session_name = ""
@@ -106,20 +105,11 @@ def trace(func):
             }
             log_prov(log_record)
         log_prov({"activity_id": activity_id, "in_session": session_id})
-        # log parameters
-        # p.add_parameters(parameters)
+
         log_parameters(analysis, activity, activity_id)
-        # log used entities
-        # p.add_input_file("test.txt")
         log_usage(analysis, activity, activity_id)
-        # log generated entities and members
-        # p.add_output_file("test.txt")
         log_generation(analysis, activity, activity_id)
-        # log finish activity
-        # p.finish_activity(activity)
         log_finish_activity(activity_id, end)
-        #
-        # dump prov to file gammapy-prov in outdir
 
     return wrapper
 
