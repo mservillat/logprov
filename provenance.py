@@ -2,6 +2,8 @@
 Provenance-related functionality (from ctapipe initially)
 """
 
+import datetime
+import hashlib
 import json
 import logging
 import os
@@ -9,17 +11,15 @@ import platform
 import sys
 import uuid
 from contextlib import contextmanager
-from os.path import abspath
-import psutil
-from astropy.time import Time
-from gammapy.utils.scripts import read_yaml
-from pathlib import Path
 from functools import wraps
-import gammapy
-import datetime
-import hashlib
+from os.path import abspath
+from pathlib import Path
+from astropy.time import Time
+import psutil
 import yaml
 from prov.model import ProvDocument
+import gammapy
+from gammapy.utils.scripts import read_yaml
 
 log = logging.getLogger(__name__)
 
