@@ -85,6 +85,8 @@ def trace(func):
 
 
 def log_is_active(analysis, activity):
+    """Check if provenance option is enabled in configuration settings."""
+
     active = True
     if activity not in definition["activities"].keys():
         active = False
@@ -96,6 +98,8 @@ def log_is_active(analysis, activity):
 
 
 def log_session(analysis, start):
+    """Log start of a session."""
+
     session_id = abs(hash(analysis))
     session_name = f"{analysis.__class__.__module__}.{analysis.__class__.__name__}"
     if session_id not in sessions:
@@ -114,6 +118,8 @@ def log_session(analysis, start):
 
 
 def log_start_activity(activity, activity_id, session_id, start):
+    """Log start of an activity."""
+
     log_record = {
         "activity_id": activity_id,
         "activity_name": activity,
@@ -124,11 +130,15 @@ def log_start_activity(activity, activity_id, session_id, start):
 
 
 def log_finish_activity(activity_id, end):
+    """Log end of an activity."""
+
     log_record = {"activity_id": activity_id, "endTime": end}
     log_prov_info(log_record)
 
 
 def log_parameters(analysis, activity, activity_id):
+    """Log parameters and values."""
+
     parameter_list = definition["activities"][activity]["parameters"]
     if parameter_list:
         parameters = {}
@@ -143,6 +153,8 @@ def log_parameters(analysis, activity, activity_id):
 
 
 def log_usage(analysis, activity, activity_id):
+    """Log used entities."""
+
     usage_list = definition["activities"][activity]["usage"] or []
     for item in usage_list:
         props = get_item_properties(analysis, item)
@@ -161,6 +173,8 @@ def log_usage(analysis, activity, activity_id):
 
 
 def log_generation(analysis, activity, activity_id):
+    """Log generated entities."""
+
     generation_list = definition["activities"][activity]["generation"] or []
     for item in generation_list:
         props = get_item_properties(analysis, item)
@@ -209,6 +223,7 @@ def log_prov_info(prov_dict):
 
 def get_entity_id(value, description):
     """Helper function that gets the id of an entity, depending on its type."""
+
     entity_name = description.get("entityType", None)
     entity_type = ""
     entity_names = definition["entities"]
@@ -234,6 +249,8 @@ def get_entity_id(value, description):
 
 
 def get_item_properties(nested, item):
+    """Helper function that returns properties of an entity or member."""
+
     value = ""
     properties = {}
     if "id" in item:
@@ -252,7 +269,8 @@ def get_item_properties(nested, item):
 
 
 def get_file_hash(path):
-    # get hash of file
+    """Helper function that returns hash of the content of a file."""
+
     full_path = os.path.abspath(os.path.expandvars(path))
     if os.path.isfile(full_path):
         block_size = 65536
@@ -272,6 +290,7 @@ def get_file_hash(path):
 
 def get_nested_value(nested, branch):
     """Helper function that gets a specific value in a nested dictionary or class."""
+
     list_branch = branch.split(".")
     leaf = list_branch.pop(0)
     if not nested:
@@ -297,8 +316,7 @@ def get_nested_value(nested, branch):
 #
 
 def get_system_provenance():
-    """ return JSON string containing provenance for all things that are
-    fixed during the runtime"""
+    """Return JSON string containing provenance for all things that are fixed during the runtime."""
 
     bits, linkage = platform.architecture()
 
@@ -332,6 +350,8 @@ def get_system_provenance():
 
 
 def get_env_vars():
+    """Return env vars defined at the main scope of the script."""
+
     envvars = {}
     for var in _interesting_env_vars:
         envvars[var] = os.getenv(var, None)
