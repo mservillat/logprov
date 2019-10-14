@@ -110,7 +110,7 @@ def log_session(analysis, start):
             "config": str(config),
             "system": system,
         }
-        log_prov(log_record)
+        log_prov_info(log_record)
     return session_id
 
 
@@ -121,14 +121,14 @@ def log_start_activity(activity, activity_id, session_id, start):
         "in_session": session_id,
         "startTime": start,
     }
-    log_prov(log_record)
+    log_prov_info(log_record)
 
 
 def log_finish_activity(activity_id, end, **kwargs):
     log_record = {"activity_id": activity_id, "endTime": end}
     for k in kwargs:
         log_record[k] = kwargs[k]
-    log_prov(log_record)
+    log_prov_info(log_record)
 
 
 def log_parameters(analysis, activity, activity_id):
@@ -144,7 +144,7 @@ def log_parameters(analysis, activity, activity_id):
         log_record = {"activity_id": activity_id, "parameters": parameters}
         # use filter if defined
         if parameters:
-            log_prov(log_record)
+            log_prov_info(log_record)
 
 
 def log_usage(analysis, activity, activity_id):
@@ -178,7 +178,7 @@ def log_usage(analysis, activity, activity_id):
                 if item_location:
                     log_record.update({"entity_location": item_location})
                 # use filter if defined
-                log_prov(log_record)
+                log_prov_info(log_record)
 
 
 def log_generation(analysis, activity, activity_id):
@@ -212,7 +212,7 @@ def log_generation(analysis, activity, activity_id):
                 if item_location:
                     log_record.update({"entity_location": item_location})
                 # use filter if defined
-                log_prov(log_record)
+                log_prov_info(log_record)
             # log members in generated entities
             # p.add_members()
             if "has_members" in item:
@@ -242,10 +242,10 @@ def log_generation(analysis, activity, activity_id):
                             log_record.update({"member_type": item["has_members"]["entityType"]})
                         if item_location:
                             log_record.update({"member_location": element_location})
-                        log_prov(log_record)
+                        log_prov_info(log_record)
 
 
-def log_prov(prov_dict):
+def log_prov_info(prov_dict):
     """ Write a dictionary to the log with a prefix to indicate provenance info"""
     log.info(
         "{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict)
