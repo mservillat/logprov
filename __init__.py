@@ -1,3 +1,3 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-"""Data and observation handling."""
+"""Provenance capture module."""
 from .provenance import *
