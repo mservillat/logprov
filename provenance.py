@@ -65,13 +65,13 @@ def trace(func):
     """A decorator which tracks provenance info."""
 
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(*args, **kwargs):
 
         # activity execution
         activity = func.__name__
         start = datetime.datetime.now().isoformat()
         activity_id = abs(id(func) + id(start))
-        analysis = func(self, *args, **kwargs)
+        analysis = func(*args, **kwargs)
         end = datetime.datetime.now().isoformat()
 
         # no provenance logging
@@ -81,31 +81,8 @@ def trace(func):
         # provenance logging only if activity ends properly
         analysis.args = args
         analysis.kwargs = kwargs
-        log_start_activity(activity, activity_id, start)
-
-        # log session and environment info
-        session_id = abs(hash(analysis))
-        if session_id not in sessions:
-            sessions.append(session_id)
-            # log session start, environment and configfile
-            session_name = ""
-            try:
-                session_name = str(analysis.__class__).split("'")[1]
-            except Exception as e:
-                log.warning("Cannot get session name")
-                pass
-            config = getattr(getattr(analysis, "config", None), "filename", "")
-            system = _get_system_provenance()
-            log_record = {
-                "session_id": session_id,
-                "session_name": session_name,
-                "startTime": start,
-                "config": str(config),
-                "system": system,
-            }
-            log_prov(log_record)
-        log_prov({"activity_id": activity_id, "in_session": session_id})
-
+        session_id = log_session(analysis, start)
+        log_start_activity(activity, activity_id, session_id, start)
         log_parameters(analysis, activity, activity_id)
         log_usage(analysis, activity, activity_id)
         log_generation(analysis, activity, activity_id)
@@ -116,7 +93,6 @@ def trace(func):
 
 def log_is_active(analysis, activity):
     active = True
-    # active = Provenance()
     if activity not in definition["activities"].keys():
         active = False
     if not analysis:
@@ -126,10 +102,29 @@ def log_is_active(analysis, activity):
     return active
 
 
-def log_start_activity(activity, activity_id, start):
+def log_session(analysis, start):
+    session_id = abs(hash(analysis))
+    session_name = f"{analysis.__class__.__module__}.{analysis.__class__.__name__}"
+    if session_id not in sessions:
+        sessions.append(session_id)
+        config = getattr(getattr(analysis, "config", None), "filename", "")
+        system = _get_system_provenance()
+        log_record = {
+            "session_id": session_id,
+            "session_name": session_name,
+            "startTime": start,
+            "config": str(config),
+            "system": system,
+        }
+        log_prov(log_record)
+    return session_id
+
+
+def log_start_activity(activity, activity_id, session_id, start):
     log_record = {
         "activity_id": activity_id,
         "activity_name": activity,
+        "in_session": session_id,
         "startTime": start,
     }
     log_prov(log_record)
