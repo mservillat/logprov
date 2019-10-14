@@ -50,7 +50,6 @@ class LogProv(type):
 
         for attr in attributedict:
             if attr in definition["activities"].keys() and callable(attributedict[attr]):
-                print("decorated method:", attr)
                 attributedict[attr] = trace(attributedict[attr])
         return type.__new__(mcs, clsname, superclasses, attributedict)
 
@@ -100,6 +99,7 @@ def log_session(analysis, start):
     session_id = abs(hash(analysis))
     session_name = f"{analysis.__class__.__module__}.{analysis.__class__.__name__}"
     if session_id not in sessions:
+        # TODO serialise config
         sessions.append(session_id)
         system = get_system_provenance()
         log_record = {
@@ -123,10 +123,8 @@ def log_start_activity(activity, activity_id, session_id, start):
     log_prov_info(log_record)
 
 
-def log_finish_activity(activity_id, end, **kwargs):
+def log_finish_activity(activity_id, end):
     log_record = {"activity_id": activity_id, "endTime": end}
-    for k in kwargs:
-        log_record[k] = kwargs[k]
     log_prov_info(log_record)
 
 
@@ -145,60 +143,56 @@ def log_parameters(analysis, activity, activity_id):
 
 
 def log_usage(analysis, activity, activity_id):
-    usage_list = definition["activities"][activity]["usage"]
-    if usage_list:
-        for item in usage_list:
-            props = get_item_properties(analysis, item)
-            if "id" in props:
-                log_record = {
-                    "activity_id": activity_id,
-                    "used_id": props["id"],
-                }
-                if "entityType" in item:
-                    log_record.update({"entity_type": item["entityType"]})
-                if "location" in props:
-                    log_record.update({"entity_location": props["location"]})
-                if "role" in props:
-                    log_record.update({"used_role": props["role"]})
-                log_prov_info(log_record)
+    usage_list = definition["activities"][activity]["usage"] or []
+    for item in usage_list:
+        props = get_item_properties(analysis, item)
+        if "id" in props:
+            log_record = {
+                "activity_id": activity_id,
+                "used_id": props["id"],
+            }
+            if "entityType" in item:
+                log_record.update({"entity_type": item["entityType"]})
+            if "location" in props:
+                log_record.update({"entity_location": props["location"]})
+            if "role" in props:
+                log_record.update({"used_role": props["role"]})
+            log_prov_info(log_record)
 
 
 def log_generation(analysis, activity, activity_id):
-    generation_list = definition["activities"][activity]["generation"]
-    if generation_list:
-        for item in generation_list:
-            props = get_item_properties(analysis, item)
-            if "id" in props:
-                log_record = {
-                    "activity_id": activity_id,
-                    "generated_id": props["id"],
-                }
-                if "entityType" in item:
-                    log_record.update({"entity_type": item["entityType"]})
-                if "location" in props:
-                    log_record.update({"entity_location": props["location"]})
-                if "role" in props:
-                    log_record.update({"generated_role": props["role"]})
-                log_prov_info(log_record)
+    generation_list = definition["activities"][activity]["generation"] or []
+    for item in generation_list:
+        props = get_item_properties(analysis, item)
+        if "id" in props:
+            log_record = {
+                "activity_id": activity_id,
+                "generated_id": props["id"],
+            }
+            if "entityType" in item:
+                log_record.update({"entity_type": item["entityType"]})
+            if "location" in props:
+                log_record.update({"entity_location": props["location"]})
+            if "role" in props:
+                log_record.update({"generated_role": props["role"]})
+            log_prov_info(log_record)
 
-                # log members in each generated entity
-                if "has_members" in item:
-                    subitem = item["has_members"]
-                    generated_list = get_nested_value(analysis, subitem["list"])
-                    if not generated_list:
-                        continue
-                    for member in generated_list:
-                        iprops = get_item_properties(member, subitem)
-                        if "id" in iprops:
-                            log_record = {
-                                "entity_id": props["id"],
-                                "member_id": iprops["id"]
-                            }
-                            if "entityType" in subitem:
-                                log_record.update({"member_type": subitem["entityType"]})
-                            if "location" in iprops:
-                                log_record.update({"member_location": iprops["location"]})
-                            log_prov_info(log_record)
+            # log members in each generated entity
+            if "has_members" in item:
+                subitem = item["has_members"]
+                generated_list = get_nested_value(analysis, subitem["list"]) or []
+                for member in generated_list:
+                    iprops = get_item_properties(member, subitem)
+                    if "id" in iprops:
+                        log_record = {
+                            "entity_id": props["id"],
+                            "member_id": iprops["id"]
+                        }
+                        if "entityType" in subitem:
+                            log_record.update({"member_type": subitem["entityType"]})
+                        if "location" in iprops:
+                            log_record.update({"member_location": iprops["location"]})
+                        log_prov_info(log_record)
 
 
 def log_prov_info(prov_dict):
