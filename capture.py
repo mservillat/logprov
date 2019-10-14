@@ -176,27 +176,32 @@ def log_generation(analysis, activity, activity_id):
             if "role" in props:
                 log_record.update({"generated_role": props["role"]})
             log_prov_info(log_record)
+            log_members(props["id"], item, analysis)
 
-            # log members in each generated entity
-            if "has_members" in item:
-                subitem = item["has_members"]
-                generated_list = get_nested_value(analysis, subitem["list"]) or []
-                for member in generated_list:
-                    iprops = get_item_properties(member, subitem)
-                    if "id" in iprops:
-                        log_record = {
-                            "entity_id": props["id"],
-                            "member_id": iprops["id"]
-                        }
-                        if "entityType" in subitem:
-                            log_record.update({"member_type": subitem["entityType"]})
-                        if "location" in iprops:
-                            log_record.update({"member_location": iprops["location"]})
-                        log_prov_info(log_record)
+
+def log_members(entity_id, item, analysis):
+    """Log members of and entity."""
+
+    if "has_members" in item:
+        subitem = item["has_members"]
+        generated_list = get_nested_value(analysis, subitem["list"]) or []
+        for member in generated_list:
+            props = get_item_properties(member, subitem)
+            if "id" in props:
+                log_record = {
+                    "entity_id": entity_id,
+                    "member_id": props["id"]
+                }
+                if "entityType" in subitem:
+                    log_record.update({"member_type": subitem["entityType"]})
+                if "location" in props:
+                    log_record.update({"member_location": props["location"]})
+                log_prov_info(log_record)
 
 
 def log_prov_info(prov_dict):
-    """ Write a dictionary to the log with a prefix to indicate provenance info"""
+    """Write a dictionary to the log."""
+
     log.info(
         "{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict)
     )
