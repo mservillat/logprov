@@ -221,20 +221,23 @@ def log_prov_info(prov_dict):
     )
 
 
-def get_entity_id(value, description):
+def get_entity_id(value, item):
     """Helper function that gets the id of an entity, depending on its type."""
 
-    entity_name = description.get("entityType", None)
     entity_type = ""
     entity_names = definition["entities"]
+    entity_name = item.get("entityType", None)
     if entity_name and entity_name in entity_names:
         entity_type = entity_names[entity_name].get("type", None)
     else:
         log.warning(f"{PROV_PREFIX}Entity {entity_name} not found in definitions")
     if "FileCollection" in entity_type:
         # value for e.g. DataStore is a path to a Gammapy data store, get full path? get hash of index?
+        filename = value
         index = entity_names[entity_name].get("index", "")
-        return get_file_hash(os.path.join(value, index))
+        if Path(os.path.expandvars(value)).is_dir():
+            filename = Path(value)/index
+        return get_file_hash(filename)
     if "File" in entity_type:
         # value is a path to a file .- get the hash of this file
         return get_file_hash(value)
@@ -244,7 +247,7 @@ def get_entity_id(value, description):
         return abs(hash(value))
     except TypeError:
         # otherwise use id() i.e. its memory address
-        # rk: two different objects may use the same memory address, so use hash(entity_type) to avoid issues
+        # rk: two different objects may use the same memory address, so use hash(entity_name) to avoid issues
         return abs(id(value) + hash(entity_name))
 
 
@@ -271,8 +274,8 @@ def get_item_properties(nested, item):
 def get_file_hash(path):
     """Helper function that returns hash of the content of a file."""
 
-    full_path = os.path.abspath(os.path.expandvars(path))
-    if os.path.isfile(full_path):
+    full_path = Path(os.path.expandvars(path))
+    if full_path.is_file():
         block_size = 65536
         hash_md5 = hashlib.md5()
         with open(full_path, "rb") as f:
