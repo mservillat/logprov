@@ -101,13 +101,12 @@ def log_session(analysis, start):
     session_name = f"{analysis.__class__.__module__}.{analysis.__class__.__name__}"
     if session_id not in sessions:
         sessions.append(session_id)
-        config = getattr(getattr(analysis, "config", None), "filename", "")
         system = get_system_provenance()
         log_record = {
             "session_id": session_id,
             "session_name": session_name,
             "startTime": start,
-            "config": str(config),
+            "config": analysis.config.filename,
             "system": system,
         }
         log_prov_info(log_record)
@@ -138,11 +137,9 @@ def log_parameters(analysis, activity, activity_id):
         for parameter in parameter_list:
             if "name" in parameter and "value" in parameter:
                 parameter_value = get_nested_value(analysis, parameter["value"])
-                # parameter_value is found
                 if parameter_value:
                     parameters[parameter["name"]] = parameter_value
         log_record = {"activity_id": activity_id, "parameters": parameters}
-        # use filter if defined
         if parameters:
             log_prov_info(log_record)
 
@@ -151,33 +148,18 @@ def log_usage(analysis, activity, activity_id):
     usage_list = definition["activities"][activity]["usage"]
     if usage_list:
         for item in usage_list:
-            item_id = ""
-            item_role = ""
-            item_value = ""
-            item_location = ""
-            if "id" in item:
-                item_id = get_nested_value(analysis, item["id"])
-            if "value" in item:
-                item_value = get_nested_value(analysis, item["value"])
-            if "location" in item:
-                item_location = get_nested_value(analysis, item["location"])
-                if not item_value:
-                    item_value = item_location
-            if item_value:
-                item_role = item.get("role", item_value)
-                if not item_id:
-                    item_id = get_entity_id(item_value, item)
-            if item_id:
+            props = get_item_properties(analysis, item)
+            if "id" in props:
                 log_record = {
                     "activity_id": activity_id,
-                    "used_role": item_role,
-                    "used_id": item_id,
+                    "used_id": props["id"],
                 }
                 if "entityType" in item:
                     log_record.update({"entity_type": item["entityType"]})
-                if item_location:
-                    log_record.update({"entity_location": item_location})
-                # use filter if defined
+                if "location" in props:
+                    log_record.update({"entity_location": props["location"]})
+                if "role" in props:
+                    log_record.update({"used_role": props["role"]})
                 log_prov_info(log_record)
 
 
@@ -185,64 +167,38 @@ def log_generation(analysis, activity, activity_id):
     generation_list = definition["activities"][activity]["generation"]
     if generation_list:
         for item in generation_list:
-            item_id = ""
-            item_role = ""
-            item_value = ""
-            item_location = ""
-            if "id" in item:
-                item_id = get_nested_value(analysis, item["id"])
-            if "value" in item:
-                item_value = get_nested_value(analysis, item["value"])
-            if "location" in item:
-                item_location = get_nested_value(analysis, item["location"])
-                if not item_value:
-                    item_value = item_location
-            if item_value:
-                item_role = item.get("role", item_value)
-                if not item_id:
-                    item_id = get_entity_id(item_value, item)
-            if item_id:
+            props = get_item_properties(analysis, item)
+            if "id" in props:
                 log_record = {
                     "activity_id": activity_id,
-                    "generated_role": item_role,
-                    "generated_id": item_id,
+                    "generated_id": props["id"],
                 }
                 if "entityType" in item:
                     log_record.update({"entity_type": item["entityType"]})
-                if item_location:
-                    log_record.update({"entity_location": item_location})
-                # use filter if defined
+                if "location" in props:
+                    log_record.update({"entity_location": props["location"]})
+                if "role" in props:
+                    log_record.update({"generated_role": props["role"]})
                 log_prov_info(log_record)
-            # log members in generated entities
-            # p.add_members()
-            if "has_members" in item:
-                subitem = item["has_members"]
-                generated_list = get_nested_value(analysis, subitem["list"])
-                element_id = ""
-                element_value = ""
-                element_location = ""
-                if not generated_list:
-                    return False
-                for element in generated_list:
-                    if "id" in subitem:
-                        element_id = get_nested_value(element, subitem["id"])
-                    if "value" in subitem:
-                        element_value = get_nested_value(element, subitem["value"])
-                    if "location" in subitem:
-                        element_location = get_nested_value(element, subitem["location"])
-                        if not element_value:
-                            element_value = element_location
-                    if element_value:
-                        if not element_id:
-                            element_id = get_entity_id(element_value, item)
-                    if element_id:
-                        log_record = {"entity_id": item_id, "member_id": element_id}
-                        if "entityType" in item["has_members"]:
-                            log_record.update({"member_type": item["has_members"]["entityType"]})
-                            log_record.update({"member_type": item["has_members"]["entityType"]})
-                        if item_location:
-                            log_record.update({"member_location": element_location})
-                        log_prov_info(log_record)
+
+                # log members in each generated entity
+                if "has_members" in item:
+                    subitem = item["has_members"]
+                    generated_list = get_nested_value(analysis, subitem["list"])
+                    if not generated_list:
+                        continue
+                    for member in generated_list:
+                        iprops = get_item_properties(member, subitem)
+                        if "id" in iprops:
+                            log_record = {
+                                "entity_id": props["id"],
+                                "member_id": iprops["id"]
+                            }
+                            if "entityType" in subitem:
+                                log_record.update({"member_type": subitem["entityType"]})
+                            if "location" in iprops:
+                                log_record.update({"member_location": iprops["location"]})
+                            log_prov_info(log_record)
 
 
 def log_prov_info(prov_dict):
@@ -250,25 +206,6 @@ def log_prov_info(prov_dict):
     log.info(
         "{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict)
     )
-
-
-def get_file_hash(path):
-    # get hash of file
-    full_path = os.path.abspath(os.path.expandvars(path))
-    if os.path.isfile(full_path):
-        block_size = 65536
-        hash_md5 = hashlib.md5()
-        with open(full_path, "rb") as f:
-            buffer = f.read(block_size)
-            while len(buffer) > 0:
-                hash_md5.update(buffer)
-                buffer = f.read(block_size)
-        file_hash = hash_md5.hexdigest()
-        log.info(f"{PROV_PREFIX}The entity is a file with hash={file_hash} ({path})")
-        return file_hash
-    else:
-        log.warning(f"{PROV_PREFIX}The entity is a file that was not found ({path})")
-        return full_path
 
 
 def get_entity_id(value, description):
@@ -297,6 +234,43 @@ def get_entity_id(value, description):
         return abs(id(value) + hash(entity_name))
 
 
+def get_item_properties(nested, item):
+    value = ""
+    properties = {}
+    if "id" in item:
+        properties["id"] = get_nested_value(nested, item["id"])
+    if "role" in item:
+        properties["role"] = item["role"]
+    if "location" in item:
+        properties["location"] = get_nested_value(nested, item["location"])
+    if "value" in item:
+        value = get_nested_value(nested, item["value"])
+    if not value and "location" in properties:
+        value = properties["location"]
+    if value and "id" not in properties:
+        properties["id"] = get_entity_id(value, item)
+    return properties
+
+
+def get_file_hash(path):
+    # get hash of file
+    full_path = os.path.abspath(os.path.expandvars(path))
+    if os.path.isfile(full_path):
+        block_size = 65536
+        hash_md5 = hashlib.md5()
+        with open(full_path, "rb") as f:
+            buffer = f.read(block_size)
+            while len(buffer) > 0:
+                hash_md5.update(buffer)
+                buffer = f.read(block_size)
+        file_hash = hash_md5.hexdigest()
+        log.info(f"{PROV_PREFIX}The entity is a file with hash={file_hash} ({path})")
+        return file_hash
+    else:
+        log.warning(f"{PROV_PREFIX}The entity is a file that was not found ({path})")
+        return full_path
+
+
 def get_nested_value(nested, branch):
     """Helper function that gets a specific value in a nested dictionary or class."""
     list_branch = branch.split(".")
@@ -320,11 +294,8 @@ def get_nested_value(nested, branch):
         return val
 
 
-# ctapipe inherited code starts here ---------
+# ctapipe inherited code starts here
 #
-#
-#
-
 
 def get_system_provenance():
     """ return JSON string containing provenance for all things that are
