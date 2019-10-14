@@ -102,7 +102,7 @@ def log_session(analysis, start):
     if session_id not in sessions:
         sessions.append(session_id)
         config = getattr(getattr(analysis, "config", None), "filename", "")
-        system = _get_system_provenance()
+        system = get_system_provenance()
         log_record = {
             "session_id": session_id,
             "session_name": session_name,
@@ -125,10 +125,7 @@ def log_start_activity(activity, activity_id, session_id, start):
 
 
 def log_finish_activity(activity_id, end, **kwargs):
-    log_record = {
-        "activity_id": activity_id,
-        "endTime": end
-    }
+    log_record = {"activity_id": activity_id, "endTime": end}
     for k in kwargs:
         log_record[k] = kwargs[k]
     log_prov(log_record)
@@ -239,15 +236,10 @@ def log_generation(analysis, activity, activity_id):
                         if not element_id:
                             element_id = get_entity_id(element_value, item)
                     if element_id:
-                        log_record = {
-                            "entity_id": item_id,
-                            "member_id": element_id,
-                        }
+                        log_record = {"entity_id": item_id, "member_id": element_id}
                         if "entityType" in item["has_members"]:
-                            log_record.update({"member_type": item["has_members"]['entityType']})
-                            log_record.update(
-                                {"member_type": item["has_members"]["entityType"]}
-                            )
+                            log_record.update({"member_type": item["has_members"]["entityType"]})
+                            log_record.update({"member_type": item["has_members"]["entityType"]})
                         if item_location:
                             log_record.update({"member_location": element_location})
                         log_prov(log_record)
@@ -255,7 +247,9 @@ def log_generation(analysis, activity, activity_id):
 
 def log_prov(prov_dict):
     """ Write a dictionary to the log with a prefix to indicate provenance info"""
-    log.info("{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict))
+    log.info(
+        "{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict)
+    )
 
 
 def get_file_hash(path):
@@ -332,7 +326,7 @@ def get_nested_value(nested, branch):
 #
 
 
-def _get_system_provenance():
+def get_system_provenance():
     """ return JSON string containing provenance for all things that are
     fixed during the runtime"""
 
@@ -361,13 +355,13 @@ def _get_system_provenance():
             compiler=platform.python_compiler(),
             implementation=platform.python_implementation(),
         ),
-        environment=_get_env_vars(),
+        environment=get_env_vars(),
         arguments=sys.argv,
         start_time_utc=Time.now().isot,
     )
 
 
-def _get_env_vars():
+def get_env_vars():
     envvars = {}
     for var in _interesting_env_vars:
         envvars[var] = os.getenv(var, None)
