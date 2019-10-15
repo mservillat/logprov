@@ -231,23 +231,19 @@ def get_entity_id(value, item):
         entity_type = entity_names[entity_name].get("type", None)
     else:
         log.warning(f"{PROV_PREFIX}Entity {entity_name} not found in definitions")
-    if "FileCollection" in entity_type:
-        # value for e.g. DataStore is a path to a Gammapy data store, get full path? get hash of index?
+    if entity_type == "FileCollection":
         filename = value
         index = entity_names[entity_name].get("index", "")
         if Path(os.path.expandvars(value)).is_dir():
             filename = Path(value)/index
         return get_file_hash(filename)
-    if "File" in entity_type:
-        # value is a path to a file .- get the hash of this file
+    if entity_type == "File":
         return get_file_hash(value)
-    # if no specific way to get id, try hash() of python object, or id()
     try:
-        # identify with the hash of the object
         return abs(hash(value))
     except TypeError:
-        # otherwise use id() i.e. its memory address
-        # rk: two different objects may use the same memory address, so use hash(entity_name) to avoid issues
+        # rk: two different objects may use the same memory address
+        # so use hash(entity_name) to avoid issues
         return abs(id(value) + hash(entity_name))
 
 
@@ -284,10 +280,10 @@ def get_file_hash(path):
                 hash_md5.update(buffer)
                 buffer = f.read(block_size)
         file_hash = hash_md5.hexdigest()
-        log.info(f"{PROV_PREFIX}The entity is a file with hash={file_hash} ({path})")
+        log.debug(f"{PROV_PREFIX}File entity {path} has hash {file_hash}")
         return file_hash
     else:
-        log.warning(f"{PROV_PREFIX}The entity is a file that was not found ({path})")
+        log.warning(f"{PROV_PREFIX}File entity {path} not found")
         return full_path
 
 
