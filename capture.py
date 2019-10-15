@@ -12,8 +12,8 @@ from functools import wraps
 from pathlib import Path
 from astropy.time import Time
 import psutil
-import gammapy
 from gammapy.utils.scripts import read_yaml
+from gammapy.scripts.info import get_info_dependencies, get_info_version, get_info_envvar
 
 log = logging.getLogger(__name__)
 
@@ -316,8 +316,11 @@ def get_system_provenance():
     bits, linkage = platform.architecture()
 
     return dict(
-        gammapy_version=gammapy.__version__,
-        gammapy_data_path=os.getenv("GAMMAPY_DATA"),
+        # gammapy specific
+        version=get_info_version(),
+        dependencies=get_info_dependencies(),
+        envvars=get_info_envvar(),
+        # gammapy specific
         executable=sys.executable,
         platform=dict(
             architecture_bits=bits,
