@@ -61,6 +61,7 @@ activities:
                   entityName: Observation
                   list: observations.list
                   id: obs_id
+                  location: location(hdu_type="events").path().__str__()
                   namespace: ""
 
     get_datasets:

@@ -306,7 +306,17 @@ def get_nested_value(nested, branch):
     if isinstance(nested, dict):
         val = nested.get(leaf, None)
     elif isinstance(nested, object):
-        val = getattr(nested, leaf, None)
+        if "(" in leaf:
+            leaf_elts = leaf.replace(")", "").split("(")
+            leaf_func = leaf_elts.pop(0)
+            leaf_args = {}
+            for arg in leaf_elts:
+                if "=" in arg:
+                    k, v = arg.split("=")
+                    leaf_args[k] = v.replace("\"", "")
+            val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(**leaf_args)
+        else:
+            val = getattr(nested, leaf, None)
     else:
         raise TypeError
     # continue to explore leaf or return value
