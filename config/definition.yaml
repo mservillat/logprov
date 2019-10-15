@@ -13,17 +13,17 @@
 #     usage/generation:
 #       - role:
 #         description:
-#         entityType:
+#         entityName:
 #         location:    # Python variable that contains the location of the entity
 #                      #  (e.g. a valid path to a File/DataStore)
 #         value:       # Python variable that contains the value of the entity
 #         id:          # Python variable that contains the id of the entity
 #         has_members:
 #           list:      # Python list of the members (e.g. observations.list)
-#           entityType:
+#           entityName:
 #           location/value/id:
 #
-# entityTypes:
+# entityNames:
 #   <entity_name>:
 #     description:
 #     path:  # default path?
@@ -45,15 +45,15 @@ activities:
         usage:
             - role: datastore
               description: "DataStore object file"
-              entityType: DataStore
+              entityName: DataStore
               location: settings.observations.datastore
         generation:
             - role: observations selected
               description: "Observations selected"
-              entityType: Observations
+              entityName: Observations
               value: observations
               has_members:
-                  entityType: Observation
+                  entityName: Observation
                   list: observations.list
                   id: obs_id
                   namespace: ""
@@ -88,27 +88,27 @@ activities:
         usage:
             - role: observations
               description: "Observations selected"
-              entityType: Observations
+              entityName: Observations
               value: observations
             - role: exclusion_mask
               description: "Exclusion mask for spectral background estimation"
-              entityType: File
+              entityName: File
               location: settings.datasets.background.exclusion_mask.filename
         generation:
             - role: background estimator
               description: "ReflectedRegionsBackgroundEstimator object"
-              entityType: ReflectedRegionsBackgroundEstimator
+              entityName: ReflectedRegionsBackgroundEstimator
               value: background_estimator
             - role: spectrum extraction
               description: "SpectrumExtraction object"
-              entityType: SpectrumExtraction
+              entityName: SpectrumExtraction
               value: extraction
             - role: reduced_datasets
               description: "Datasets produced in the reduction process"
-              entityType: Datasets
+              entityName: Datasets
               value: datasets
               has_members:
-                  entityType: Dataset
+                  entityName: Dataset
                   list: datasets.datasets
                   id: name
 
@@ -125,19 +125,19 @@ activities:
               value: kwargs.filename
         usage:
             - role: model_file
-              entityType: YAMLFile
+              entityName: YAMLFile
               location: kwargs.filename
 #            - role: reduced datasets
 #              description: "Datasets produced in the reduction process"
-#              entityType: Datasets
+#              entityName: Datasets
 #              location: datasets
         generation:
             - role: model
-              entityType: SkyModel
+              entityName: SkyModel
               value: model
 #            - role: datasets with model
 #              description: "Datasets with model attached"
-#              entityType: Datasets
+#              entityName: Datasets
 #              location: datasets
 
     run_fit:
@@ -148,17 +148,17 @@ activities:
         usage:
             - role: datasets
               description: "Datasets to fit"
-              entityType: Datasets
+              entityName: Datasets
               value: datasets
             - role: model
-              entityType: SkyModel
+              entityName: SkyModel
               value: model
         generation:
             - role: fit
-              entityType: Fit
+              entityName: Fit
               value: fit
             - role: fit_result
-              entityType: FitResult
+              entityName: FitResult
               value: fit_result
 
     get_flux_points:
@@ -170,17 +170,17 @@ activities:
               value: settings.flux-points.fp_binning
         usage:
             - role: datasets
-              entityType: Datasets
+              entityName: Datasets
               value: datasets
             - role: model
-              entityType: SkyModel
+              entityName: SkyModel
               value: model
             - role: fit_result
-              entityType: FitResult
+              entityName: FitResult
               value: fit_result
         generation:
             - role: calculated flux points dataset
-              entityType: FluxPointsDataset
+              entityName: FluxPointsDataset
               value: flux_points
 
 entities:
