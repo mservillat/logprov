@@ -9,25 +9,30 @@
 #       - name:
 #         description:
 #         value:       # Python variable that contains the parameter value
-#                      # (maybe be nested in an object or dict)
 #     usage/generation:
-#       - role:
+#       - entityName:
 #         description:
-#         entityName:
-#         location:    # Python variable that contains the location of the entity
-#                      #  (e.g. a valid path to a File/DataStore)
 #         value:       # Python variable that contains the value of the entity
+#         location:    # Python variable that contains the location of the entity
+#                      # any object that may be serialised should have a location property
+#                      # location and value properties are not mutually exclusive
 #         id:          # Python variable that contains the id of the entity
+#         role:
 #         has_members:
-#           list:      # Python list of the members (e.g. observations.list)
 #           entityName:
-#           location/value/id:
+#           list:      # Python list object where the members are stored
+#           location:
+#           value:
+#           id:
+#           namespace?
 #
 # entityNames:
 #   <entity_name>:
 #     description:
-#     path:  # default path?
-#
+#     docurl:
+#     contentType:
+#     type: PythonObject, File, FileCollection
+#     index: index file applicable for a FileCollection
 
 activities:
 
@@ -43,15 +48,15 @@ activities:
               description: "Filter criteria to select observations"
               value: settings.observations.filters
         usage:
-            - role: datastore
+            - entityName: DataStore
               description: "DataStore object file"
-              entityName: DataStore
               location: settings.observations.datastore
+              role: datastore
         generation:
-            - role: observations selected
+            - entityName: Observations
               description: "Observations selected"
-              entityName: Observations
               value: observations
+              role: observations selected
               has_members:
                   entityName: Observation
                   list: observations.list
@@ -86,27 +91,27 @@ activities:
               description: "Radius of PSF kernel used"
               value: settings.datasets.psf-kernel-radius
         usage:
-            - role: observations
+            - entityName: Observations
               description: "Observations selected"
-              entityName: Observations
               value: observations
-            - role: exclusion_mask
+              role: observations selected
+            - entityName: Mask
               description: "Exclusion mask for spectral background estimation"
-              entityName: File
               location: settings.datasets.background.exclusion_mask.filename
+              role: exclusion mask
         generation:
-            - role: background estimator
+            - entityName: ReflectedRegionsBackgroundEstimator
               description: "ReflectedRegionsBackgroundEstimator object"
-              entityName: ReflectedRegionsBackgroundEstimator
               value: background_estimator
-            - role: spectrum extraction
+              role: background estimator
+            - entityName: SpectrumExtraction
               description: "SpectrumExtraction object"
-              entityName: SpectrumExtraction
               value: extraction
-            - role: reduced_datasets
+              role: spectrum extraction
+            - entityName: Datasets
               description: "Datasets produced in the reduction process"
-              entityName: Datasets
               value: datasets
+              role: reduced datasets
               has_members:
                   entityName: Dataset
                   list: datasets.datasets
@@ -124,64 +129,70 @@ activities:
               description: "Filename and path with the YAML model description"
               value: kwargs.filename
         usage:
-            - role: model_file
-              entityName: YAMLFile
-              location: kwargs.filename
-#            - role: reduced datasets
-#              description: "Datasets produced in the reduction process"
-#              entityName: Datasets
-#              location: datasets
+            - entityName: Datasets
+              description: "Datasets produced in the reduction process"
+              value: datasets
+              role: reduced datasets
         generation:
-            - role: model
-              entityName: SkyModel
+            - entityName: SkyModel
+              description: "Parametric composed model"
               value: model
-#            - role: datasets with model
-#              description: "Datasets with model attached"
-#              entityName: Datasets
-#              location: datasets
+              role: model
+#           TODO add a derived dataset
+#           - entityName: Datasets
+#             description: "Datasets with initial model"
+#             location: datasets
+#             role: datasets with model
 
     run_fit:
         description: "Fitting reduced data sets to model"
         parameters:
             - name: fit_range
+              description: "Energy range where to perform the fit"
               value: settings.fit.fit_range
         usage:
-            - role: datasets
+            - entityName: Datasets
               description: "Datasets to fit"
-              entityName: Datasets
               value: datasets
-            - role: model
-              entityName: SkyModel
-              value: model
+              role: datasets with initial model
         generation:
-            - role: fit
-              entityName: Fit
+            - entityName: Fit
+              description: "Object that stores fitting parameters"
               value: fit
-            - role: fit_result
-              entityName: FitResult
+              role: fit object
+            - entityName: FitResult
+              description: "Object that stores fitting results parameters"
               value: fit_result
+              role: fit result
+#           TODO add a derived dataset
+#           - entityName: Datasets
+#             description: "Datasets fitted to model"
+#             location: datasets
+#             role: datasets with model
 
     get_flux_points:
-        description: "Calculate flux points."
+        description: "Calculate flux points"
         parameters:
             - name: source
+              description: "Source name parameter in the model component"
               value: args.source
             - name: fp_binning
+              description: "Energy binning"
               value: settings.flux-points.fp_binning
         usage:
-            - role: datasets
-              entityName: Datasets
+            - entityName: Datasets
+              description: "Datasets where to calculate the flux points"
               value: datasets
-            - role: model
-              entityName: SkyModel
+              role: datasets with fitted model
+            - entityName: SkyModel
+              description: "Parametric composed model"
               value: model
-            - role: fit_result
-              entityName: FitResult
-              value: fit_result
+              role: model
         generation:
-            - role: calculated flux points dataset
-              entityName: FluxPointsDataset
+            - entityName: FluxPointsDataset
+              description: "Calculated flux points dataset"
               value: flux_points
+              role: calculated flux points dataset
 
 entities:
     PythonObject:
@@ -232,6 +243,10 @@ entities:
         description: "A FluxPointsDataset object"
         docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.FluxPointsDataset
         type: PythonObject
+    Mask:
+        description: "A 2D or 3D mask as FITS file"
+        contentType: application/fits
+        type: File
     File:
         description: "A File on the disk"
         type: File
