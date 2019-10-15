@@ -137,7 +137,7 @@ def provlist2provdoc(provlist):
                 if "member_value" in provdict:
                     mem.add_attributes({"prov:value": str(provdict["member_value"])})
                 if "member_location" in provdict:
-                    ent.add_attributes(
+                    mem.add_attributes(
                         {"prov:location": str(provdict["member_location"])}
                     )
                 ent.hadMember(mem)
