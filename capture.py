@@ -163,8 +163,8 @@ def log_usage(analysis, activity, activity_id):
                 "activity_id": activity_id,
                 "used_id": props["id"],
             }
-            if "entityType" in item:
-                log_record.update({"entity_type": item["entityType"]})
+            if "entityName" in item:
+                log_record.update({"entity_type": item["entityName"]})
             if "location" in props:
                 log_record.update({"entity_location": props["location"]})
             if "role" in props:
@@ -183,8 +183,8 @@ def log_generation(analysis, activity, activity_id):
                 "activity_id": activity_id,
                 "generated_id": props["id"],
             }
-            if "entityType" in item:
-                log_record.update({"entity_type": item["entityType"]})
+            if "entityName" in item:
+                log_record.update({"entity_type": item["entityName"]})
             if "location" in props:
                 log_record.update({"entity_location": props["location"]})
             if "role" in props:
@@ -206,8 +206,8 @@ def log_members(entity_id, item, analysis):
                     "entity_id": entity_id,
                     "member_id": props["id"]
                 }
-                if "entityType" in subitem:
-                    log_record.update({"member_type": subitem["entityType"]})
+                if "entityName" in subitem:
+                    log_record.update({"member_type": subitem["entityName"]})
                 if "location" in props:
                     log_record.update({"member_location": props["location"]})
                 log_prov_info(log_record)
@@ -226,7 +226,7 @@ def get_entity_id(value, item):
 
     entity_type = ""
     entity_names = definition["entities"]
-    entity_name = item.get("entityType", None)
+    entity_name = item.get("entityName", None)
     if entity_name and entity_name in entity_names:
         entity_type = entity_names[entity_name].get("type", None)
     else:
