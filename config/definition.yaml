@@ -113,10 +113,11 @@ activities:
               description: "Datasets produced in the reduction process"
               value: datasets
               role: reduced datasets
-              has_members:
+              is_derived_from:
                   entityName: Dataset
                   list: datasets.datasets
                   id: name
+                  namespace: gamma-dl3
 
     set_model:
         description:
