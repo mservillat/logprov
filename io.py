@@ -159,6 +159,27 @@ def provlist2provdoc(provlist):
                         {"prov:location": str(provdict["member_location"])}
                     )
                 ent.hadMember(mem)
+            if "derivation_id" in provdict:
+                deriv_id = str(provdict["derivation_id"])
+                if ":" not in deriv_id:
+                    deriv_id = DEFAULT_NS + ":" + deriv_id
+                else:
+                    new_ns = deriv_id.split(":").pop(0)
+                    pdoc.add_namespace(new_ns, new_ns + ":")
+                if deriv_id in records:
+                    deriv = records[deriv_id]
+                else:
+                    deriv = pdoc.entity(deriv_id)
+                    records[deriv_id] = deriv
+                if "derivation_type" in provdict:
+                    deriv.add_attributes({"prov:type": provdict["derivation_type"]})
+                if "derivation_value" in provdict:
+                    deriv.add_attributes({"prov:value": str(provdict["derivation_value"])})
+                if "derivation_location" in provdict:
+                    deriv.add_attributes(
+                        {"prov:location": str(provdict["derivation_location"])}
+                    )
+                ent.wasDerivedFrom(deriv)
         # agent
     return pdoc
 

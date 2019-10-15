@@ -195,6 +195,7 @@ def log_generation(analysis, activity, activity_id):
                 log_record.update({"generated_role": props["role"]})
             log_prov_info(log_record)
             log_members(props["id"], item, analysis)
+            log_derivations(props["id"], item, analysis)
 
 
 def log_members(entity_id, item, analysis):
@@ -214,6 +215,24 @@ def log_members(entity_id, item, analysis):
                     log_record.update({"member_type": subitem["entityName"]})
                 if "location" in props:
                     log_record.update({"member_location": props["location"]})
+                log_prov_info(log_record)
+
+
+def log_derivations(entity_id, item, analysis):
+    """Log members of and entity."""
+
+    if "is_derived_from" in item:
+        subitem = item["is_derived_from"]
+        entity_list = get_nested_value(analysis, subitem["list"]) or []
+        for entity in entity_list:
+            props = get_item_properties(entity, subitem)
+            if "id" in props:
+                log_record = {
+                    "entity_id": entity_id,
+                    "derivation_id": props["id"]
+                }
+                if "location" in props:
+                    log_record.update({"derivation_location": props["location"]})
                 log_prov_info(log_record)
 
 
