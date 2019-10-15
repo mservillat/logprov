@@ -261,7 +261,11 @@ def get_item_properties(nested, item):
     value = ""
     properties = {}
     if "id" in item:
-        properties["id"] = get_nested_value(nested, item["id"])
+        item_id = str(get_nested_value(nested, item["id"]))
+        item_ns = item.get("namespace", None)
+        if item_ns:
+            item_id = item_ns + ":" + item_id
+        properties["id"] = item_id
     if "role" in item:
         properties["role"] = item["role"]
     if "location" in item:
