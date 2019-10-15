@@ -17,7 +17,7 @@ from gammapy.utils.scripts import read_yaml
 
 log = logging.getLogger(__name__)
 
-__all__ = ["LogProv"]
+__all__ = ["provenance"]
 
 _interesting_env_vars = [
     "CONDA_DEFAULT_ENV",
@@ -42,16 +42,12 @@ PROV_PREFIX = "_PROV_"
 sessions = []
 
 
-class LogProv(type):
-    """A metaclass which decorates the methods with trace function."""
-
-    def __new__(mcs, clsname, superclasses, attributedict):
-        """Every method gets decorated with the decorator trace."""
-
-        for attr in attributedict:
-            if attr in definition["activities"].keys() and callable(attributedict[attr]):
-                attributedict[attr] = trace(attributedict[attr])
-        return type.__new__(mcs, clsname, superclasses, attributedict)
+def provenance(cls):
+    """A function decorator which decorates the methods with trace function."""
+    for attr in cls.__dict__:
+        if attr in definition["activities"].keys() and callable(getattr(cls, attr)):
+            setattr(cls, attr, trace(getattr(cls, attr)))
+    return cls
 
 
 def trace(func):
