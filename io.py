@@ -7,6 +7,7 @@ import yaml
 from prov.model import ProvDocument
 
 PROV_PREFIX = "_PROV_"
+DEFAULT_NS = "id"  # "logprov"
 
 __all__ = ["provlist2provdoc", "provdoc2svg", "read_prov"]
 
@@ -15,11 +16,11 @@ def provlist2provdoc(provlist):
     """ Convert a list of provenance dictionaries to a provdoc W3C PROV compatible"""
     pdoc = ProvDocument()
     pdoc.set_default_namespace("param:")
-    pdoc.add_namespace("id", "id:")
+    pdoc.add_namespace(DEFAULT_NS, DEFAULT_NS + ":")
     records = {}
     for provdict in provlist:
         if "session_id" in provdict:
-            sess_id = "id:" + str(provdict["session_id"])
+            sess_id = DEFAULT_NS + ":" + str(provdict["session_id"])
             if sess_id in records:
                 sess = records[sess_id]
             else:
@@ -35,7 +36,7 @@ def provlist2provdoc(provlist):
             )
         # activity
         if "activity_id" in provdict:
-            act_id = "id:" + str(provdict["activity_id"]).replace("-", "")
+            act_id = DEFAULT_NS + ":" + str(provdict["activity_id"]).replace("-", "")
             if act_id in records:
                 act = records[act_id]
             else:
@@ -56,7 +57,7 @@ def provlist2provdoc(provlist):
                 )
             # in session?
             if "in_session" in provdict:
-                sess_id = "id:" + str(provdict["in_session"])
+                sess_id = DEFAULT_NS + ":" + str(provdict["in_session"])
                 pdoc.wasInfluencedBy(
                     act_id, sess_id
                 )  # , other_attributes={'prov:type': "Context"})
@@ -70,7 +71,12 @@ def provlist2provdoc(provlist):
                 act.used(par, attributes={"prov:type": "Setup"})
             # usage
             if "used_id" in provdict:
-                ent_id = "id:" + str(provdict["used_id"])
+                ent_id = str(provdict["used_id"])
+                if ":" not in ent_id:
+                    ent_id = DEFAULT_NS + ":" + ent_id
+                else:
+                    new_ns = ent_id.split(":").pop(0)
+                    pdoc.add_namespace(new_ns, new_ns + ":")
                 if ent_id in records:
                     ent = records[ent_id]
                 else:
@@ -90,7 +96,12 @@ def provlist2provdoc(provlist):
                 act.used(ent_id, attributes={"prov:role": rol})
             # generation
             if "generated_id" in provdict:
-                ent_id = "id:" + str(provdict["generated_id"])
+                ent_id = str(provdict["generated_id"])
+                if ":" not in ent_id:
+                    ent_id = DEFAULT_NS + ":" + ent_id
+                else:
+                    new_ns = ent_id.split(":").pop(0)
+                    pdoc.add_namespace(new_ns, new_ns + ":")
                 if ent_id in records:
                     ent = records[ent_id]
                 else:
@@ -110,7 +121,9 @@ def provlist2provdoc(provlist):
                 ent.wasGeneratedBy(act, attributes={"prov:role": rol})
         # entity
         if "entity_id" in provdict:
-            ent_id = "id:" + str(provdict["entity_id"])
+            ent_id = str(provdict["entity_id"])
+            if ":" not in ent_id:
+                ent_id = DEFAULT_NS + ":" + ent_id
             if ent_id in records:
                 ent = records[ent_id]
             else:
@@ -126,7 +139,12 @@ def provlist2provdoc(provlist):
                 ent.add_attributes({"prov:location": str(provdict["entity_location"])})
             # member
             if "member_id" in provdict:
-                mem_id = "id:" + str(provdict["member_id"])
+                mem_id = str(provdict["member_id"])
+                if ":" not in mem_id:
+                    mem_id = DEFAULT_NS + ":" + mem_id
+                else:
+                    new_ns = mem_id.split(":").pop(0)
+                    pdoc.add_namespace(new_ns, new_ns + ":")
                 if mem_id in records:
                     mem = records[mem_id]
                 else:

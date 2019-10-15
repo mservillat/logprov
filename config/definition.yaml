@@ -62,7 +62,7 @@ activities:
                   list: observations.list
                   id: obs_id
                   location: location(hdu_type="events").path().__str__()
-                  namespace: ""
+                  namespace: gamma-dl3
 
     get_datasets:
         description: "Produce reduced datasets"
