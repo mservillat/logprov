@@ -1,7 +1,6 @@
 """
 Provenance capture functions (from ctapipe initially)
 """
-
 import datetime
 import hashlib
 import logging
@@ -12,8 +11,12 @@ from functools import wraps
 from pathlib import Path
 from astropy.time import Time
 import psutil
-from gammapy.utils.scripts import read_yaml
-from gammapy.scripts.info import get_info_dependencies, get_info_version, get_info_envvar
+import yaml
+from gammapy.scripts.info import (
+    get_info_dependencies,
+    get_info_version,
+    get_info_envvar,
+)
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +39,7 @@ _interesting_env_vars = [
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config"
 SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
-definition = read_yaml(SCHEMA_FILE)
+definition = yaml.safe_load(SCHEMA_FILE.read_text())
 
 PROV_PREFIX = "_PROV_"
 sessions = []
@@ -213,7 +216,9 @@ def log_prov_info(prov_dict):
     """Write a dictionary to the log."""
 
     log.info(
-        "{}{}{}{}".format(PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict)
+        "{}{}{}{}".format(
+            PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict
+        )
     )
 
 
@@ -231,7 +236,7 @@ def get_entity_id(value, item):
         filename = value
         index = entity_names[entity_name].get("index", "")
         if Path(os.path.expandvars(value)).is_dir():
-            filename = Path(value)/index
+            filename = Path(value) / index
         return get_file_hash(filename)
     if entity_type == "File":
         return get_file_hash(value)
@@ -309,6 +314,7 @@ def get_nested_value(nested, branch):
 
 # ctapipe inherited code starts here
 #
+
 
 def get_system_provenance():
     """Return JSON string containing provenance for all things that are fixed during the runtime."""
