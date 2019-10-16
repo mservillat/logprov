@@ -131,7 +131,10 @@ def log_start_activity(activity, activity_id, session_id, start):
 def log_finish_activity(activity_id, end):
     """Log end of an activity."""
 
-    log_record = {"activity_id": activity_id, "endTime": end}
+    log_record = {
+        "activity_id": activity_id,
+        "endTime": end
+    }
     log_prov_info(log_record)
 
 
@@ -146,9 +149,11 @@ def log_parameters(analysis, activity, activity_id):
                 parameter_value = get_nested_value(analysis, parameter["value"])
                 if parameter_value:
                     parameters[parameter["name"]] = parameter_value
-        log_record = {"activity_id": activity_id, "parameters": parameters}
-        if parameters:
-            log_prov_info(log_record)
+        log_record = {
+            "activity_id": activity_id,
+            "parameters": parameters
+        }
+        log_prov_info(log_record) if parameters else False
 
 
 def log_usage(analysis, activity, activity_id):
@@ -225,21 +230,23 @@ def log_prov_info(prov_dict):
 def get_entity_id(value, item):
     """Helper function that gets the id of an entity, depending on its type."""
 
-    entity_type = ""
-    entity_names = definition["entities"]
-    entity_name = item.get("entityName", None)
-    if entity_name and entity_name in entity_names:
-        entity_type = entity_names[entity_name].get("type", None)
-    else:
-        log.warning(f"{PROV_PREFIX}Entity {entity_name} not found in definitions")
+    try:
+        entity_name = item["entityName"]
+        entity_type = definition["entities"][entity_name]["type"]
+    except Exception as ex:
+        log.warning(f"{PROV_PREFIX}{str(ex)}")
+        entity_name = ""
+        entity_type = ""
+
     if entity_type == "FileCollection":
         filename = value
-        index = entity_names[entity_name].get("index", "")
-        if Path(os.path.expandvars(value)).is_dir():
+        index = definition["entities"][entity_name].get("index", "")
+        if Path(os.path.expandvars(value)).is_dir() and index:
             filename = Path(value) / index
         return get_file_hash(filename)
     if entity_type == "File":
         return get_file_hash(value)
+
     try:
         return abs(hash(value))
     except TypeError:
