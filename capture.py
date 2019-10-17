@@ -42,7 +42,9 @@ SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
 definition = yaml.safe_load(SCHEMA_FILE.read_text())
 
 PROV_PREFIX = "_PROV_"
+
 sessions = []
+last_generated = {}
 
 
 def provenance(cls):
@@ -161,7 +163,10 @@ def log_usage(analysis, activity, activity_id):
 
     usage_list = definition["activities"][activity]["usage"] or []
     for item in usage_list:
-        props = get_item_properties(analysis, item)
+        if "value" in item and item["value"] in last_generated:
+            props = {"id": last_generated[item["value"]]}
+        else:
+            props = get_item_properties(analysis, item)
         if "id" in props:
             log_record = {
                 "activity_id": activity_id,
@@ -171,8 +176,6 @@ def log_usage(analysis, activity, activity_id):
                 log_record.update({"entity_type": item["entityName"]})
             if "location" in props:
                 log_record.update({"entity_location": props["location"]})
-            if "role" in props:
-                log_record.update({"used_role": props["role"]})
             log_prov_info(log_record)
 
 
@@ -183,6 +186,8 @@ def log_generation(analysis, activity, activity_id):
     for item in generation_list:
         props = get_item_properties(analysis, item)
         if "id" in props:
+            if "value" in item:
+                last_generated[item["value"]] = props["id"]
             log_record = {
                 "activity_id": activity_id,
                 "generated_id": props["id"],
@@ -191,8 +196,6 @@ def log_generation(analysis, activity, activity_id):
                 log_record.update({"entity_type": item["entityName"]})
             if "location" in props:
                 log_record.update({"entity_location": props["location"]})
-            if "role" in props:
-                log_record.update({"generated_role": props["role"]})
             log_prov_info(log_record)
             log_members(props["id"], item, analysis)
             log_derivations(props["id"], item, analysis)
@@ -267,7 +270,7 @@ def get_entity_id(value, item):
         return get_file_hash(value)
 
     try:
-        return abs(hash(value))
+        return abs(hash(value) + hash(str(value)))
     except TypeError:
         # rk: two different objects may use the same memory address
         # so use hash(entity_name) to avoid issues
