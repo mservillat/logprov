@@ -5,34 +5,51 @@
 # activities:
 #   <activity_name>:
 #     description:
+#     contact:
 #     parameters:
 #       - name:
 #         description:
-#         value:       # Python variable that contains the parameter value
+#         value:         # Python variable that contains the parameter value
+#         datatype/arraysize/xtype:
+#         unit/ucd/utype:
+#         min/max/options/default:
 #     usage/generation:
-#       - entityName:
+#       - role:
 #         description:
-#         value:       # Python variable that contains the value of the entity
-#         location:    # Python variable that contains the location of the entity
-#                      # any object that may be serialised should have a location property
-#                      # location and value properties are not mutually exclusive
-#         id:          # Python variable that contains the id of the entity
-#         role:
+#         entityType:
+#         multiplicity:
+#         location:      # Python variable that contains the location of the entity
+#                        # any object that may be serialised should have a location property
+#                        # location and value properties are not mutually exclusive
+#         value:         # Python variable that contains the value of the entity
+#         id:            # Python variable that contains the id of the entity
 #         has_members:
-#           entityName:
-#           list:      # Python list object where the members are stored
+#           list:        # Python list object where the members are stored
+#           entityType:
 #           location:
 #           value:
 #           id:
-#           namespace?
+#           namespace
+#         is_derived_from:
+#           list:        # Python list object where the sources of derivation are stored
+#           entityType:
+#           location:
+#           value:
+#           id:
+#           namespace
 #
-# entityNames:
+# entities:
 #   <entity_name>:
 #     description:
 #     docurl:
 #     contentType:
 #     type: PythonObject, File, FileCollection
 #     index: index file applicable for a FileCollection
+#
+# agents:
+#   <agent_name>:
+#     email:
+#
 
 activities:
 
@@ -41,22 +58,22 @@ activities:
             "Fetch observations from the data store according
             to criteria defined in the configuration"
         parameters:
-            - name: datastore
+            - name: datastore_path
               description: "DataStore path as string"
               value: settings.observations.datastore
             - name: filters
               description: "Filter criteria to select observations"
               value: settings.observations.filters
         usage:
-            - entityName: DataStore
+            - role: datastore
               description: "DataStore object file"
+              entityName: DataStore
               location: settings.observations.datastore
-              role: datastore
         generation:
-            - entityName: Observations
+            - role: observations selected
               description: "Observations selected"
+              entityName: Observations
               value: observations
-              role: observations selected
               has_members:
                   entityName: Observation
                   list: observations.list
@@ -92,27 +109,27 @@ activities:
               description: "Radius of PSF kernel used"
               value: settings.datasets.psf-kernel-radius
         usage:
-            - entityName: Observations
+            - role: observations_selected
               description: "Observations selected"
+              entityName: Observations
               value: observations
-              role: observations selected
-            - entityName: Mask
+            - role: exclusion_mask
               description: "Exclusion mask for spectral background estimation"
+              entityName: Mask
               location: settings.datasets.background.exclusion_mask.filename
-              role: exclusion mask
         generation:
-            - entityName: ReflectedRegionsBackgroundEstimator
+            - role: background_estimator
               description: "ReflectedRegionsBackgroundEstimator object"
+              entityName: ReflectedRegionsBackgroundEstimator
               value: background_estimator
-              role: background estimator
-            - entityName: SpectrumExtraction
+            - role: spectrum_extraction
               description: "SpectrumExtraction object"
+              entityName: SpectrumExtraction
               value: extraction
-              role: spectrum extraction
-            - entityName: Datasets
+            - role: reduced_datasets
               description: "Datasets produced in the reduction process"
+              entityName: Datasets
               value: datasets
-              role: reduced datasets
               is_derived_from:
                   entityName: Dataset
                   list: datasets.datasets
@@ -131,20 +148,24 @@ activities:
               description: "Filename and path with the YAML model description"
               value: kwargs.filename
         usage:
-            - entityName: Datasets
-              description: "Datasets produced in the reduction process"
-              value: datasets
-              role: reduced datasets
+            - role: model_file
+              entityType: YAMLFile
+              location: kwargs.filename
+#            - role: reduced datasets
+#              description: "Datasets produced in the reduction process"
+#              entityName: Datasets
+#              value: datasets
         generation:
-            - entityName: SkyModel
+            - role: model
               description: "Parametric composed model"
+              entityName: SkyModel
               value: model
-              role: model
 #           TODO add a derived dataset
-#           - entityName: Datasets
+#           - role: datasets with model
 #             description: "Datasets with initial model"
+#             entityName: Datasets
 #             location: datasets
-#             role: datasets with model
+
 
     run_fit:
         description: "Fitting reduced data sets to model"
@@ -152,20 +173,31 @@ activities:
             - name: fit_range
               description: "Energy range where to perform the fit"
               value: settings.fit.fit_range
+            - name: optimize_opts
+              description: "Options passed to `Fit.optimize`."
+              value: kwargs.optimize_opts
         usage:
-            - entityName: Datasets
-              description: "Datasets to fit"
+            - role: datasets
+              description: "Datasets to fit with initial model"
+              entityName: Datasets
               value: datasets
-              role: datasets with initial model
+            - role: model
+              description: "Parametric composed model"
+              entityName: SkyModel
+              value: model
         generation:
-            - entityName: Fit
+            - role: fit object
               description: "Object that stores fitting parameters"
+              entityName: Fit
               value: fit
-              role: fit object
-            - entityName: FitResult
+            - role: fit result
               description: "Object that stores fitting results parameters"
+              entityName: FitResult
               value: fit_result
-              role: fit result
+            - role: fitted_model
+              description: "Parametric composed model fitted on datasets"
+              entityName: SkyModel
+              value: model
 #           TODO add a derived dataset
 #           - entityName: Datasets
 #             description: "Datasets fitted to model"
@@ -182,19 +214,19 @@ activities:
               description: "Energy binning"
               value: settings.flux-points.fp_binning
         usage:
-            - entityName: Datasets
-              description: "Datasets where to calculate the flux points"
+            - role: datasets
+              description: "Datasets with fitted model where to calculate the flux points"
+              entityName: Datasets
               value: datasets
-              role: datasets with fitted model
-            - entityName: SkyModel
+            - role: model
               description: "Parametric composed model"
+              entityName: SkyModel
               value: model
-              role: model
         generation:
-            - entityName: FluxPointsDataset
+            - role: flux_points_dataset
               description: "Calculated flux points dataset"
+              entityName: FluxPointsDataset
               value: flux_points
-              role: calculated flux points dataset
 
 entities:
     PythonObject:
