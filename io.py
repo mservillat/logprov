@@ -29,9 +29,9 @@ def provlist2provdoc(provlist):
             sess.add_attributes(
                 {
                     "prov:label": provdict["session_name"],
-                    "prov:type": "SystemEnvironment",
+                    "prov:type": "ExecutionSession",
                     "prov:generatedAtTime": provdict["startTime"],
-                    #'system': str(provdict['system']),
+                    'system': str(provdict['system'])[:50],
                 }
             )
         # activity
@@ -56,11 +56,11 @@ def provlist2provdoc(provlist):
                     endTime=datetime.datetime.fromisoformat(provdict["endTime"])
                 )
             # in session?
-            if "in_session" in provdict:
-                sess_id = DEFAULT_NS + ":" + str(provdict["in_session"])
-                pdoc.wasInfluencedBy(
-                    act_id, sess_id
-                )  # , other_attributes={'prov:type': "Context"})
+            # if "in_session" in provdict:
+            #     sess_id = DEFAULT_NS + ":" + str(provdict["in_session"])
+            #     pdoc.wasInfluencedBy(
+            #         act_id, sess_id
+            #     )  # , other_attributes={'prov:type': "Context"})
             # activity configuration
             if "parameters" in provdict:
                 params = {
