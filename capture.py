@@ -172,6 +172,8 @@ def log_usage(analysis, activity, activity_id):
                 "activity_id": activity_id,
                 "used_id": props["id"],
             }
+            if "role" in item:
+                log_record.update({"used_role": item["role"]})
             if "entityName" in item:
                 log_record.update({"entity_type": item["entityName"]})
             if "location" in props:
@@ -192,6 +194,8 @@ def log_generation(analysis, activity, activity_id):
                 "activity_id": activity_id,
                 "generated_id": props["id"],
             }
+            if "role" in item:
+                log_record.update({"generated_role": item["role"]})
             if "entityName" in item:
                 log_record.update({"entity_type": item["entityName"]})
             if "location" in props:
@@ -288,8 +292,6 @@ def get_item_properties(nested, item):
         if item_ns:
             item_id = item_ns + ":" + item_id
         properties["id"] = item_id
-    if "role" in item:
-        properties["role"] = item["role"]
     if "location" in item:
         properties["location"] = get_nested_value(nested, item["location"])
     if "value" in item:
