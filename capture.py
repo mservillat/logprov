@@ -260,8 +260,11 @@ def log_generation(class_instance, activity, activity_id):
 def log_members(entity_id, subitem, class_instance):
     """Log members of and entity."""
 
-    generated_list = get_nested_value(class_instance, subitem["list"]) or []
-    for member in generated_list:
+    if "list" in subitem:
+        member_list = get_nested_value(class_instance, subitem["list"]) or []
+    else:
+        member_list = [class_instance]
+    for member in member_list:
         props = get_item_properties(member, subitem)
         if "id" in props:
             log_record = {
@@ -278,7 +281,10 @@ def log_members(entity_id, subitem, class_instance):
 def log_progenitors(entity_id, subitem, class_instance):
     """Log progenitors of and entity."""
 
-    progenitor_list = get_nested_value(class_instance, subitem["list"]) or []
+    if "list" in subitem:
+        progenitor_list = get_nested_value(class_instance, subitem["list"]) or []
+    else:
+        progenitor_list = [class_instance]
     for entity in progenitor_list:
         props = get_item_properties(entity, subitem)
         if "id" in props:
