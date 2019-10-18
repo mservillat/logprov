@@ -62,6 +62,19 @@ def provlist2provdoc(provlist):
             #         act_id, sess_id
             #     )  # , other_attributes={'prov:type': "Context"})
             # activity configuration
+            if "agent_name" in provdict:
+                agent_id = str(provdict["agent_name"])
+                if ":" not in agent_id:
+                    agent_id = DEFAULT_NS + ":" + agent_id
+                else:
+                    new_ns = agent_id.split(":").pop(0)
+                    pdoc.add_namespace(new_ns, new_ns + ":")
+                if agent_id in records:
+                    agent = records[agent_id]
+                else:
+                    agent = pdoc.agent(agent_id)
+                    records[agent_id] = agent
+                act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
             if "parameters" in provdict:
                 params = {
                     k: str(provdict["parameters"][k]) for k in provdict["parameters"]
