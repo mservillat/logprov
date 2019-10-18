@@ -24,19 +24,19 @@
 #         value:         # Python variable that contains the value of the entity
 #         id:            # Python variable that contains the id of the entity
 #         has_members:
-#           list:        # Python list of the members ids
+#           list:        # Python list of members
 #           entityType:
 #           location:
 #           value:
 #           id:
-#           namespace
+#           namespace:
 #         has_progenitors:
-#           list:        # Python list of the progenitors ids
+#           list:        # Python list of progenitors
 #           entityType:
 #           location:
 #           value:
 #           id:
-#           namespace
+#           namespace:
 #
 # entities:
 #   <entity_name>:
