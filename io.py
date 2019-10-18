@@ -155,31 +155,27 @@ def provlist2provdoc(provlist):
                 if "member_value" in provdict:
                     mem.add_attributes({"prov:value": str(provdict["member_value"])})
                 if "member_location" in provdict:
-                    mem.add_attributes(
-                        {"prov:location": str(provdict["member_location"])}
-                    )
+                    mem.add_attributes({"prov:location": str(provdict["member_location"])})
                 ent.hadMember(mem)
-            if "derivation_id" in provdict:
-                deriv_id = str(provdict["derivation_id"])
-                if ":" not in deriv_id:
-                    deriv_id = DEFAULT_NS + ":" + deriv_id
+            if "progenitor_id" in provdict:
+                progen_id = str(provdict["progenitor_id"])
+                if ":" not in progen_id:
+                    progen_id = DEFAULT_NS + ":" + progen_id
                 else:
-                    new_ns = deriv_id.split(":").pop(0)
+                    new_ns = progen_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
-                if deriv_id in records:
-                    deriv = records[deriv_id]
+                if progen_id in records:
+                    progen = records[progen_id]
                 else:
-                    deriv = pdoc.entity(deriv_id)
-                    records[deriv_id] = deriv
-                if "derivation_type" in provdict:
-                    deriv.add_attributes({"prov:type": provdict["derivation_type"]})
-                if "derivation_value" in provdict:
-                    deriv.add_attributes({"prov:value": str(provdict["derivation_value"])})
-                if "derivation_location" in provdict:
-                    deriv.add_attributes(
-                        {"prov:location": str(provdict["derivation_location"])}
-                    )
-                ent.wasDerivedFrom(deriv)
+                    progen = pdoc.entity(progen_id)
+                    records[progen_id] = progen
+                if "progenitor_type" in provdict:
+                    progen.add_attributes({"prov:type": provdict["progenitor_type"]})
+                if "progenitor_value" in provdict:
+                    progen.add_attributes({"prov:value": str(provdict["progenitor_value"])})
+                if "progenitor_location" in provdict:
+                    progen.add_attributes({"prov:location": str(provdict["progenitor_location"])})
+                ent.wasDerivedFrom(progen)
         # agent
     return pdoc
 

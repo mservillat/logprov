@@ -24,14 +24,14 @@
 #         value:         # Python variable that contains the value of the entity
 #         id:            # Python variable that contains the id of the entity
 #         has_members:
-#           list:        # Python list object where the members are stored
+#           list:        # Python list of the members ids
 #           entityType:
 #           location:
 #           value:
 #           id:
 #           namespace
-#         is_derived_from:
-#           list:        # Python list object where the sources of derivation are stored
+#         has_progenitors:
+#           list:        # Python list of the progenitors ids
 #           entityType:
 #           location:
 #           value:
@@ -70,16 +70,16 @@ activities:
               entityName: DataStore
               location: settings.observations.datastore
         generation:
-            - role: observations selected
+            - role: selected_observations
               description: "Observations selected"
               entityName: Observations
               value: observations
               has_members:
-                  entityName: Observation
                   list: observations.list
+                  entityName: Observation
                   id: obs_id
                   location: location(hdu_type="events").path().__str__()
-                  namespace: gamma-dl3
+                  namespace: gamma-events
 
     get_datasets:
         description: "Produce reduced datasets"
@@ -130,11 +130,11 @@ activities:
               description: "Datasets produced in the reduction process"
               entityName: Datasets
               value: datasets
-              is_derived_from:
-                  entityName: Dataset
+              has_progenitors:
                   list: datasets.datasets
+                  entityName: Observation
                   id: name
-                  namespace: gamma-dl3
+                  namespace: gamma-events
 
     set_model:
         description:
