@@ -12,6 +12,7 @@ from pathlib import Path
 from astropy.time import Time
 import psutil
 import yaml
+import uuid
 from gammapy.scripts.info import (
     get_info_dependencies,
     get_info_version,
@@ -42,9 +43,10 @@ SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
 definition = yaml.safe_load(SCHEMA_FILE.read_text())
 
 PROV_PREFIX = "_PROV_"
+HASH_TYPE = "md5"
 
 sessions = []
-last_generated = {}
+traced_entities = {}
 
 
 def provenance(cls):
@@ -61,48 +63,78 @@ def trace(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
 
-        # activity execution
         activity = func.__name__
+        activity_id = activity_id_gen()  # abs(id(func) + id(start))
+        class_instance = args[0]
+        class_instance.args = args
+        class_instance.kwargs = kwargs
+
+        # test if traced entities have changed
+        derivation_records = []
+        for var, ent_id in traced_entities.items():
+            value = get_nested_value(class_instance, var)
+            new_id = get_entity_id(value, {})
+            if new_id != ent_id:
+                log_record = {"entity_id": new_id, "progenitor_id": ent_id}
+                derivation_records.append(log_record)
+                traced_entities[var] = new_id
+                log.warning(f"{PROV_PREFIX}Derivation detected by {activity} for {var}, now: {new_id}")
+
+        # provenance capture before execution
         start = datetime.datetime.now().isoformat()
-        activity_id = abs(id(func) + id(start))
-        analysis = func(*args, **kwargs)
+        parameter_records = get_parameters_records(class_instance, activity, activity_id)
+        usage_records = get_usage_records(class_instance, activity, activity_id)
+
+        # activity execution
+        result = func(*args, **kwargs)
         end = datetime.datetime.now().isoformat()
 
         # no provenance logging
-        if not log_is_active(analysis, activity):
-            return True
+        if not log_is_active(class_instance, activity):
+            return result
 
         # provenance logging only if activity ends properly
-        analysis.args = args
-        analysis.kwargs = kwargs
-        session_id = log_session(analysis, start)
+        session_id = log_session(class_instance, start)
+        for log_record in derivation_records:
+            log_prov_info(log_record)
         log_start_activity(activity, activity_id, session_id, start)
-        log_parameters(analysis, activity, activity_id)
-        log_usage(analysis, activity, activity_id)
-        log_generation(analysis, activity, activity_id)
+        for log_record in parameter_records:
+            log_prov_info(log_record)
+        for log_record in usage_records:
+            log_prov_info(log_record)
+        log_generation(class_instance, activity, activity_id)
         log_finish_activity(activity_id, end)
+
+        return result
 
     return wrapper
 
 
-def log_is_active(analysis, activity):
+def activity_id_gen():
+    # uuid example: ea5caa9f-0a76-42f5-a1a7-43752df755f0
+    # uuid[-12:]: 43752df755f0
+    # uuid[-6:]: f755f0
+    return str(uuid.uuid4())[-6:]
+
+
+def log_is_active(class_instance, activity):
     """Check if provenance option is enabled in configuration settings."""
 
     active = True
     if activity not in definition["activities"].keys():
         active = False
-    if not analysis:
+    if not class_instance:
         active = False
-    # if not analysis.settings["general"]["logging"]["level"] == "PROV":
+    # if not class_instance.settings["general"]["logging"]["level"] == "PROV":
     #   active = False
     return active
 
 
-def log_session(analysis, start):
+def log_session(class_instance, start):
     """Log start of a session."""
 
-    session_id = abs(hash(analysis))
-    session_name = f"{analysis.__class__.__module__}.{analysis.__class__.__name__}"
+    session_id = abs(hash(class_instance))
+    session_name = f"{class_instance.__class__.__module__}.{class_instance.__class__.__name__}"
     if session_id not in sessions:
         # TODO serialise config
         sessions.append(session_id)
@@ -111,7 +143,7 @@ def log_session(analysis, start):
             "session_id": session_id,
             "session_name": session_name,
             "startTime": start,
-            "config": analysis.config.filename,
+            "config": class_instance.config.filename,
             "system": system,
         }
         log_prov_info(log_record)
@@ -140,33 +172,50 @@ def log_finish_activity(activity_id, end):
     log_prov_info(log_record)
 
 
-def log_parameters(analysis, activity, activity_id):
-    """Log parameters and values."""
+def log_parameters(class_instance, activity, activity_id):
+    """Log parameter values of an activity."""
 
-    parameter_list = definition["activities"][activity]["parameters"]
+    records = get_parameters_records(class_instance, activity, activity_id)
+    for log_record in records:
+        log_prov_info(log_record)
+
+
+def get_parameters_records(class_instance, activity, activity_id):
+    """Get log records for parameters of the activity."""
+
+    records = []
+    parameter_list = definition["activities"][activity]["parameters"] or []
     if parameter_list:
         parameters = {}
         for parameter in parameter_list:
             if "name" in parameter and "value" in parameter:
-                parameter_value = get_nested_value(analysis, parameter["value"])
+                parameter_value = get_nested_value(class_instance, parameter["value"])
                 if parameter_value:
                     parameters[parameter["name"]] = parameter_value
-        log_record = {
-            "activity_id": activity_id,
-            "parameters": parameters
-        }
-        log_prov_info(log_record) if parameters else False
+        if parameters:
+            log_record = {
+                "activity_id": activity_id,
+                "parameters": parameters
+            }
+            records.append(log_record)
+    return records
 
 
-def log_usage(analysis, activity, activity_id):
+def log_usage(class_instance, activity, activity_id):
     """Log used entities."""
 
+    records = get_usage_records(class_instance, activity, activity_id)
+    for log_record in records:
+        log_prov_info(log_record)
+
+
+def get_usage_records(class_instance, activity, activity_id):
+    """Get log records for each usage of the activity."""
+
+    records = []
     usage_list = definition["activities"][activity]["usage"] or []
     for item in usage_list:
-        if "value" in item and item["value"] in last_generated:
-            props = {"id": last_generated[item["value"]]}
-        else:
-            props = get_item_properties(analysis, item)
+        props = get_item_properties(class_instance, item)
         if "id" in props:
             log_record = {
                 "activity_id": activity_id,
@@ -178,18 +227,19 @@ def log_usage(analysis, activity, activity_id):
                 log_record.update({"entity_type": item["entityName"]})
             if "location" in props:
                 log_record.update({"entity_location": props["location"]})
-            log_prov_info(log_record)
+            records.append(log_record)
+    return records
 
 
-def log_generation(analysis, activity, activity_id):
+def log_generation(class_instance, activity, activity_id):
     """Log generated entities."""
 
     generation_list = definition["activities"][activity]["generation"] or []
     for item in generation_list:
-        props = get_item_properties(analysis, item)
+        props = get_item_properties(class_instance, item)
         if "id" in props:
             if "value" in item:
-                last_generated[item["value"]] = props["id"]
+                traced_entities[item["value"]] = props["id"]
             log_record = {
                 "activity_id": activity_id,
                 "generated_id": props["id"],
@@ -201,46 +251,44 @@ def log_generation(analysis, activity, activity_id):
             if "location" in props:
                 log_record.update({"entity_location": props["location"]})
             log_prov_info(log_record)
-            log_members(props["id"], item, analysis)
-            log_derivations(props["id"], item, analysis)
+            if "has_members" in item:
+                log_members(props["id"], item["has_members"], class_instance)
+            if "has_progenitors" in item:
+                log_progenitors(props["id"], item["has_progenitors"], class_instance)
 
 
-def log_members(entity_id, item, analysis):
+def log_members(entity_id, subitem, class_instance):
     """Log members of and entity."""
 
-    if "has_members" in item:
-        subitem = item["has_members"]
-        generated_list = get_nested_value(analysis, subitem["list"]) or []
-        for member in generated_list:
-            props = get_item_properties(member, subitem)
-            if "id" in props:
-                log_record = {
-                    "entity_id": entity_id,
-                    "member_id": props["id"]
-                }
-                if "entityName" in subitem:
-                    log_record.update({"member_type": subitem["entityName"]})
-                if "location" in props:
-                    log_record.update({"member_location": props["location"]})
-                log_prov_info(log_record)
+    generated_list = get_nested_value(class_instance, subitem["list"]) or []
+    for member in generated_list:
+        props = get_item_properties(member, subitem)
+        if "id" in props:
+            log_record = {
+                "entity_id": entity_id,
+                "member_id": props["id"]
+            }
+            if "entityName" in subitem:
+                log_record.update({"member_type": subitem["entityName"]})
+            if "location" in props:
+                log_record.update({"member_location": props["location"]})
+            log_prov_info(log_record)
 
 
-def log_derivations(entity_id, item, analysis):
-    """Log members of and entity."""
+def log_progenitors(entity_id, subitem, class_instance):
+    """Log progenitors of and entity."""
 
-    if "is_derived_from" in item:
-        subitem = item["is_derived_from"]
-        entity_list = get_nested_value(analysis, subitem["list"]) or []
-        for entity in entity_list:
-            props = get_item_properties(entity, subitem)
-            if "id" in props:
-                log_record = {
-                    "entity_id": entity_id,
-                    "derivation_id": props["id"]
-                }
-                if "location" in props:
-                    log_record.update({"derivation_location": props["location"]})
-                log_prov_info(log_record)
+    progenitor_list = get_nested_value(class_instance, subitem["list"]) or []
+    for entity in progenitor_list:
+        props = get_item_properties(entity, subitem)
+        if "id" in props:
+            log_record = {
+                "entity_id": entity_id,
+                "progenitor_id": props["id"]
+            }
+            if "location" in props:
+                log_record.update({"progenitor_location": props["location"]})
+            log_prov_info(log_record)
 
 
 def log_prov_info(prov_dict):
