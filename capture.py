@@ -158,6 +158,7 @@ def log_start_activity(activity, activity_id, session_id, start):
         "activity_name": activity,
         "in_session": session_id,
         "startTime": start,
+        "agent_name": os.getlogin(),
     }
     log_prov_info(log_record)
 
