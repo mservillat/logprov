@@ -65,35 +65,24 @@ def trace(func):
     def wrapper(*args, **kwargs):
 
         activity = func.__name__
-        activity_id = activity_id_gen()  # abs(id(func) + id(start))
+        activity_id = get_activity_id()
         class_instance = args[0]
         class_instance.args = args
         class_instance.kwargs = kwargs
 
-        # test if traced entities have changed
-        derivation_records = []
-        for var, ent_id in traced_entities.items():
-            value = get_nested_value(class_instance, var)
-            new_id = get_entity_id(value, {})
-            if new_id != ent_id:
-                log_record = {"entity_id": new_id, "progenitor_id": ent_id}
-                derivation_records.append(log_record)
-                traced_entities[var] = new_id
-                log.warning(f"{PROV_PREFIX}Derivation detected by {activity} for {var}, now: {new_id}")
-
         # provenance capture before execution
-        start = datetime.datetime.now().isoformat()
+        derivation_records = get_derivation_records(class_instance, activity)
         parameter_records = get_parameters_records(class_instance, activity, activity_id)
         usage_records = get_usage_records(class_instance, activity, activity_id)
 
         # activity execution
+        start = datetime.datetime.now().isoformat()
         result = func(*args, **kwargs)
         end = datetime.datetime.now().isoformat()
 
         # no provenance logging
         if not log_is_active(class_instance, activity):
             return result
-
         # provenance logging only if activity ends properly
         session_id = log_session(class_instance, start)
         for log_record in derivation_records:
@@ -105,13 +94,12 @@ def trace(func):
             log_prov_info(log_record)
         log_generation(class_instance, activity, activity_id)
         log_finish_activity(activity_id, end)
-
         return result
 
     return wrapper
 
 
-def activity_id_gen():
+def get_activity_id():
     # uuid example: ea5caa9f-0a76-42f5-a1a7-43752df755f0
     # uuid[-12:]: 43752df755f0
     # uuid[-6:]: f755f0
@@ -176,12 +164,22 @@ def log_finish_activity(activity_id, end):
     log_prov_info(log_record)
 
 
-def log_parameters(class_instance, activity, activity_id):
-    """Log parameter values of an activity."""
+def get_derivation_records(class_instance, activity):
+    """Get log records for potentially derived entity."""
 
-    records = get_parameters_records(class_instance, activity, activity_id)
-    for log_record in records:
-        log_prov_info(log_record)
+    records = []
+    for var, ent_id in traced_entities.items():
+        value = get_nested_value(class_instance, var)
+        new_id = get_entity_id(value, {})
+        if new_id != ent_id:
+            log_record = {
+                "entity_id": new_id,
+                "progenitor_id": ent_id
+            }
+            records.append(log_record)
+            traced_entities[var] = new_id
+            log.warning(f"{PROV_PREFIX}Derivation detected by {activity} for {var}. ID: {new_id}")
+    return records
 
 
 def get_parameters_records(class_instance, activity, activity_id):
@@ -203,14 +201,6 @@ def get_parameters_records(class_instance, activity, activity_id):
             }
             records.append(log_record)
     return records
-
-
-def log_usage(class_instance, activity, activity_id):
-    """Log used entities."""
-
-    records = get_usage_records(class_instance, activity, activity_id)
-    for log_record in records:
-        log_prov_info(log_record)
 
 
 def get_usage_records(class_instance, activity, activity_id):
