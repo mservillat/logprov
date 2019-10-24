@@ -7,16 +7,16 @@ import logging
 import os
 import platform
 import sys
+import uuid
 from functools import wraps
 from pathlib import Path
 from astropy.time import Time
 import psutil
 import yaml
-import uuid
 from gammapy.scripts.info import (
     get_info_dependencies,
-    get_info_version,
     get_info_envvar,
+    get_info_version,
 )
 
 log = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ traced_entities = {}
 
 def provenance(cls):
     """A function decorator which decorates the methods with trace function."""
+
     for attr in cls.__dict__:
         if attr in definition["activities"].keys() and callable(getattr(cls, attr)):
             setattr(cls, attr, trace(getattr(cls, attr)))
@@ -134,7 +135,9 @@ def log_session(class_instance, start):
     """Log start of a session."""
 
     session_id = abs(hash(class_instance))
-    session_name = f"{class_instance.__class__.__module__}.{class_instance.__class__.__name__}"
+    module_name = class_instance.__class__.__module__
+    class_name = class_instance.__class__.__name__
+    session_name = f"{module_name}.{class_name}"
     if session_id not in sessions:
         # TODO serialise config
         sessions.append(session_id)
@@ -396,7 +399,7 @@ def get_nested_value(nested, branch):
             for arg in leaf_elts:
                 if "=" in arg:
                     k, v = arg.split("=")
-                    leaf_args[k] = v.replace("\"", "")
+                    leaf_args[k] = v.replace('"', "")
             val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(**leaf_args)
         else:
             val = getattr(nested, leaf, None)
