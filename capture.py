@@ -10,9 +10,11 @@ import sys
 import uuid
 from functools import wraps
 from pathlib import Path
+# TODO remove astropy dependence
 from astropy.time import Time
 import psutil
 import yaml
+# gammapy specific
 from gammapy.scripts.info import (
     get_info_dependencies,
     get_info_envvar,
@@ -45,6 +47,7 @@ definition = yaml.safe_load(SCHEMA_FILE.read_text())
 PROV_PREFIX = "_PROV_"
 HASH_TYPE = "md5"
 
+# global variables
 sessions = []
 traced_entities = {}
 
@@ -168,13 +171,14 @@ def get_derivation_records(class_instance, activity):
     """Get log records for potentially derived entity."""
 
     records = []
-    for var, ent_id in traced_entities.items():
+    for var, pair in traced_entities.items():
+        entity_id, item = pair
         value = get_nested_value(class_instance, var)
-        new_id = get_entity_id(value, {})
-        if new_id != ent_id:
+        new_id = get_entity_id(value, item)
+        if new_id != entity_id:
             log_record = {
                 "entity_id": new_id,
-                "progenitor_id": ent_id
+                "progenitor_id": entity_id
             }
             records.append(log_record)
             traced_entities[var] = new_id
@@ -233,7 +237,7 @@ def log_generation(class_instance, activity, activity_id):
         props = get_item_properties(class_instance, item)
         if "id" in props:
             if "value" in item:
-                traced_entities[item["value"]] = props["id"]
+                traced_entities[item["value"]] = (props["id"], item)
             log_record = {
                 "activity_id": activity_id,
                 "generated_id": props["id"],
@@ -302,7 +306,7 @@ def log_prov_info(prov_dict):
 
 
 def get_entity_id(value, item):
-    """Helper function that gets the id of an entity, depending on its type."""
+    """Helper function that makes the id of an entity, depending on its type."""
 
     try:
         entity_name = item["entityName"]
@@ -376,33 +380,34 @@ def get_nested_value(nested, branch):
 
     list_branch = branch.split(".")
     leaf = list_branch.pop(0)
+    # return value of leaf
     if not nested:
         return globals().get(leaf, None)
     # get value of leaf
     if isinstance(nested, dict):
         val = nested.get(leaf, None)
     elif isinstance(nested, object):
-        if "(" in leaf:
-            leaf_elts = leaf.replace(")", "").split("(")
-            leaf_func = leaf_elts.pop(0)
+        if "(" in leaf:                                     # leaf is a function
+            leaf_elements = leaf.replace(")", "").split("(")
+            leaf_func = leaf_elements.pop(0)
             leaf_args = {}
-            for arg in leaf_elts:
+            for arg in leaf_elements:
                 if "=" in arg:
                     k, v = arg.split("=")
                     leaf_args[k] = v.replace('"', "")
             val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(**leaf_args)
-        else:
+        else:                                               # leaf is an attribute
             val = getattr(nested, leaf, None)
     else:
         raise TypeError
-    # continue to explore leaf or return value
+    # continue to explore branch
     if len(list_branch):
         str_branch = ".".join(list_branch)
         return get_nested_value(val, str_branch)
-    else:
-        if not val:
-            val = globals().get(leaf, None)
-        return val
+    # return value of leaf
+    if not val:
+        val = globals().get(leaf, None)
+    return val
 
 
 # ctapipe inherited code starts here
