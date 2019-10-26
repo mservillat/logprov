@@ -362,10 +362,13 @@ def get_item_properties(nested, item):
     return properties
 
 
-def get_file_hash(path):
+def get_file_hash(path, method=HASH_TYPE):
     """Helper function that returns hash of the content of a file."""
 
     full_path = Path(os.path.expandvars(path))
+    if method != HASH_TYPE:
+        logger.warning(f"Hash method {method} not supported")
+        return full_path
     if full_path.is_file():
         block_size = 65536
         hash_md5 = hashlib.md5()
