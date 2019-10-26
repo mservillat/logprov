@@ -319,7 +319,7 @@ def get_entity_id(value, item):
         entity_name = item["entityName"]
         entity_type = definition["entities"][entity_name]["type"]
     except Exception as ex:
-        log.warning(f"{PROV_PREFIX}{str(ex)}")
+        logger.warning(f"{repr(ex)} in {item}")
         entity_name = ""
         entity_type = ""
 
