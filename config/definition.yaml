@@ -145,7 +145,7 @@ activities:
               value: kwargs.filename
         usage:
             - role: model_file
-              entityType: YAMLFile
+              entityName: YAMLFile
               location: kwargs.filename
 #            - role: reduced datasets
 #              description: "Datasets produced in the reduction process"
