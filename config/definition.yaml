@@ -122,10 +122,6 @@ activities:
               description: "ReflectedRegionsBackgroundEstimator object"
               entityName: ReflectedRegionsBackgroundEstimator
               value: background_estimator
-            - role: spectrum_extraction
-              description: "SpectrumExtraction object"
-              entityName: SpectrumExtraction
-              value: extraction
             - role: reduced_datasets
               description: "Datasets produced in the reduction process"
               entityName: Datasets
