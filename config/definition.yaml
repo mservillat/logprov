@@ -24,14 +24,14 @@
 #         value:         # Python variable that contains the value of the entity
 #         id:            # Python variable that contains the id of the entity
 #         has_members:
-#           list:        # Python list of members
+#           list:        # Python list of members /not mandatory
 #           entityType:
 #           location:
 #           value:
 #           id:
 #           namespace:
 #         has_progenitors:
-#           list:        # Python list of progenitors
+#           list:        # Python list of progenitors /not mandatory
 #           entityType:
 #           location:
 #           value:
@@ -190,6 +190,7 @@ activities:
               description: "Object that stores fitting results parameters"
               entityName: FitResult
               value: fit_result
+#           TODO this is a derived model
             - role: fitted_model
               description: "Parametric composed model fitted on datasets"
               entityName: SkyModel

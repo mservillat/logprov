@@ -10,8 +10,6 @@ import sys
 import uuid
 from functools import wraps
 from pathlib import Path
-# TODO remove astropy dependence
-from astropy.time import Time
 import psutil
 import yaml
 # gammapy specific
@@ -130,7 +128,6 @@ def log_session(class_instance, start):
     class_name = class_instance.__class__.__name__
     session_name = f"{module_name}.{class_name}"
     if session_id not in sessions:
-        # TODO serialise config
         sessions.append(session_id)
         system = get_system_provenance()
         log_record = {
@@ -437,7 +434,7 @@ def get_system_provenance():
             release=platform.release(),
             libcver=str(platform.libc_ver()),
             num_cpus=psutil.cpu_count(),
-            boot_time=Time(psutil.boot_time(), format="unix").isot,
+            boot_time=datetime.datetime.fromtimestamp(psutil.boot_time()).isoformat(),
         ),
         python=dict(
             version_string=sys.version,
@@ -447,7 +444,7 @@ def get_system_provenance():
         ),
         environment=get_env_vars(),
         arguments=sys.argv,
-        start_time_utc=Time.now().isot,
+        start_time_utc=datetime.datetime.now().isoformat(),
     )
 
 
@@ -465,7 +462,7 @@ def _sample_cpu_and_memory():
     # mem = psutil.virtual_memory()
 
     return dict(
-        time_utc=Time.now().utc.isot,
+        time_utc=datetime.datetime.utcnow().isoformat(),
         # memory=dict(total=mem.total,
         #             inactive=mem.inactive,
         #             available=mem.available,
