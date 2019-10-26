@@ -4,6 +4,7 @@ Provenance capture functions (from ctapipe initially)
 import datetime
 import hashlib
 import logging
+import logging.config
 import os
 import platform
 import sys
@@ -18,8 +19,6 @@ from gammapy.scripts.info import (
     get_info_envvar,
     get_info_version,
 )
-
-log = logging.getLogger(__name__)
 
 __all__ = ["provenance"]
 
@@ -40,19 +39,34 @@ _interesting_env_vars = [
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config"
 SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
+LOGGER_FILE = CONFIG_PATH / "logger.yaml"
 definition = yaml.safe_load(SCHEMA_FILE.read_text())
+provconfig = yaml.safe_load(LOGGER_FILE.read_text())
+logger = logging.getLogger('provLogger')
 
-PROV_PREFIX = "_PROV_"
-HASH_TYPE = "md5"
+PROV_PREFIX = "_PROV_"   # TODO replace with specific log level
+HASH_TYPE = "md5"        # TODO replace with config parameter
 
 # global variables
 sessions = []
 traced_entities = {}
 
 
+def setup_logging():
+    """Setup logging configuration."""
+
+    try:
+        logging.config.dictConfig(provconfig)
+    except Exception as ex:
+        print(str(ex))
+        print('Failed to set up the logger.')
+        logging.basicConfig(level="INFO")
+
+
 def provenance(cls):
     """A function decorator which decorates the methods with trace function."""
 
+    setup_logging()
     for attr in cls.__dict__:
         if attr in definition["activities"].keys() and callable(getattr(cls, attr)):
             setattr(cls, attr, trace(getattr(cls, attr)))
@@ -293,13 +307,9 @@ def log_progenitors(entity_id, subitem, class_instance):
 
 
 def log_prov_info(prov_dict):
-    """Write a dictionary to the log."""
+    """Write a dictionary to the logger."""
 
-    log.info(
-        "{}{}{}{}".format(
-            PROV_PREFIX, datetime.datetime.now().isoformat(), PROV_PREFIX, prov_dict
-        )
-    )
+    logger.info(f"{PROV_PREFIX}{prov_dict}")
 
 
 def get_entity_id(value, item):

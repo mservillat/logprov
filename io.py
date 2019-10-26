@@ -6,8 +6,9 @@ import datetime
 import yaml
 from prov.model import ProvDocument
 
-PROV_PREFIX = "_PROV_"
-DEFAULT_NS = "id"  # "logprov"
+# TODO remove
+PROV_PREFIX = "_PROV_"      # TODO replace with specific log level
+DEFAULT_NS = "id"           # "logprov"
 
 __all__ = ["provlist2provdoc", "provdoc2svg", "read_prov"]
 
@@ -221,20 +222,14 @@ def read_prov(logname, start=None, end=None):
     prov_list = []
     with open(logname, "r") as f:
         for l in f.readlines():
-            if PROV_PREFIX in l:
-                ll = l.split(PROV_PREFIX)
-                prov_str = ll.pop()
-                try:
-                    prov_dt = datetime.datetime.fromisoformat(ll.pop())
-                except ValueError as e:
-                    prov_dt = None
-                keep = True
-                if prov_dt:
-                    if start and prov_dt < start_dt:
-                        keep = False
-                    if end and prov_dt > end_dt:
-                        keep = False
-                if keep:
-                    prov_dict = yaml.safe_load(prov_str)
-                    prov_list.append(prov_dict)
+            prov_dt, prov_str = l.split(PROV_PREFIX)
+            keep = True
+            if prov_dt:
+                if start and prov_dt < start_dt:
+                    keep = False
+                if end and prov_dt > end_dt:
+                    keep = False
+            if keep:
+                prov_dict = yaml.safe_load(prov_str)
+                prov_list.append(prov_dict)
     return prov_list
