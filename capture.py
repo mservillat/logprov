@@ -375,10 +375,10 @@ def get_file_hash(path):
                 hash_md5.update(buffer)
                 buffer = f.read(block_size)
         file_hash = hash_md5.hexdigest()
-        log.debug(f"{PROV_PREFIX}File entity {path} has hash {file_hash}")
+        logger.debug(f"File entity {path} has hash {file_hash}")
         return file_hash
     else:
-        log.warning(f"{PROV_PREFIX}File entity {path} not found")
+        logger.warning(f"File entity {path} not found")
         return full_path
 
 
