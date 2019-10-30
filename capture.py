@@ -198,14 +198,18 @@ def get_nested_value(nested, branch):
         val = nested.get(leaf, None)
     elif isinstance(nested, object):
         if "(" in leaf:                                     # leaf is a function
-            leaf_elements = leaf.replace(")", "").split("(")
-            leaf_func = leaf_elements.pop(0)
-            leaf_args = {}
-            for arg in leaf_elements:
+            leaf_elements = leaf.replace(")", "").replace(" ", "").split("(")
+            leaf_arg_list = leaf_elements.pop().split(",")
+            leaf_func = leaf_elements.pop()
+            leaf_args = []
+            leaf_kwargs = {}
+            for arg in leaf_arg_list:
                 if "=" in arg:
                     k, v = arg.split("=")
-                    leaf_args[k] = v.replace('"', "")
-            val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(**leaf_args)
+                    leaf_kwargs[k] = v.replace('"', "")
+                elif arg:
+                    leaf_args.append(arg.replace('"', ""))
+            val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
         else:                                               # leaf is an attribute
             val = getattr(nested, leaf, None)
     else:
