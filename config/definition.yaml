@@ -126,11 +126,11 @@ activities:
               description: "Datasets produced in the reduction process"
               entityName: Datasets
               value: datasets
-              has_progenitors:
-                  list: datasets.datasets
-                  entityName: Observation
-                  id: name
-                  namespace: gamma-events
+#              has_progenitors:
+#                  list: datasets.datasets
+#                  entityName: Observation
+#                  id: name
+#                  namespace: gamma-events
 
     set_model:
         description:
@@ -182,11 +182,11 @@ activities:
               entityName: SkyModel
               value: model
         generation:
-            - role: fit object
+            - role: fit_object
               description: "Object that stores fitting parameters"
               entityName: Fit
               value: fit
-            - role: fit result
+            - role: fit_result
               description: "Object that stores fitting results parameters"
               entityName: FitResult
               value: fit_result
@@ -241,7 +241,7 @@ entities:
     Observation:
         description: "An observation from the DataStore with a unique obs_id"
         docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
-        type: PythonObject
+        type: File
     Datasets:
         description: "A list of datasets"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Datasets
