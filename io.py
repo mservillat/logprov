@@ -123,7 +123,6 @@ def provlist2provdoc(provlist):
         # entity
         if "entity_id" in provdict:
             ent_id = str(provdict.pop("entity_id"))
-            print(ent_id)
             if ":" not in ent_id:
                 ent_id = DEFAULT_NS + ":" + ent_id
             else:
