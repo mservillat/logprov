@@ -242,6 +242,7 @@ entities:
         description: "An observation from the DataStore with a unique obs_id"
         docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStoreObservation
         type: File
+        contentType: application/fits
     Datasets:
         description: "A list of datasets"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Datasets
@@ -276,16 +277,16 @@ entities:
         type: PythonObject
     Mask:
         description: "A 2D or 3D mask as FITS file"
-        contentType: application/fits
         type: File
+        contentType: application/fits
     File:
         description: "A File on the disk"
         type: File
     FITSFile:
         description: "A FITS File on the disk"
-        contentType: application/fits
         type: File
+        contentType: application/fits
     YAMLFile:
         description: "A YAML File on the disk"
-        contentType: application/x-yaml
         type: File
+        contentType: application/x-yaml

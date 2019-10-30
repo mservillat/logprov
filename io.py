@@ -29,9 +29,10 @@ def provlist2provdoc(provlist):
                 records[sess_id] = sess
             sess.add_attributes(
                 {
-                    "prov:label": provdict.pop("session_name"),
+                    "prov:label": provdict.pop("name"),
                     "prov:type": "ExecutionSession",
                     "prov:generatedAtTime": provdict.pop("startTime"),
+                    'configFile': provdict.pop('configFile'),
                     'system': str(provdict.pop('system'))[:50],
                 }
             )
@@ -83,6 +84,7 @@ def provlist2provdoc(provlist):
                 }
                 par = pdoc.entity(act_id + "_parameters", other_attributes=params)
                 par.add_attributes({"prov:type": "Parameters"})
+                par.add_attributes({"prov:label": "Parameters"})
                 act.used(par, attributes={"prov:type": "Setup"})
             # usage
             if "used_id" in provdict:
