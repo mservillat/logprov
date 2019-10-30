@@ -413,18 +413,18 @@ def get_file_hash(path, method=HASH_TYPE):
         return full_path
     if full_path.is_file():
         block_size = 65536
-        hash_md5 = hashlib.md5()
+        hash_func = getattr(hashlib, HASH_TYPE)()
         with open(full_path, "rb") as f:
             buffer = f.read(block_size)
             while len(buffer) > 0:
-                hash_md5.update(buffer)
+                hash_func.update(buffer)
                 buffer = f.read(block_size)
-        file_hash = hash_md5.hexdigest()
-        logger.debug(f"File entity {path} has hash {file_hash}")
+        file_hash = hash_func.hexdigest()
+        logger.debug(f"File entity {path} has {HASH_TYPE} hash {file_hash}")
         return file_hash
     else:
         logger.warning(f"File entity {path} not found")
-        return full_path
+        return path
 
 
 def get_nested_value(nested, branch):
