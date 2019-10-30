@@ -126,11 +126,11 @@ activities:
               description: "Datasets produced in the reduction process"
               entityName: Datasets
               value: datasets
-#              has_progenitors:
-#                  list: datasets.datasets
-#                  entityName: Observation
-#                  id: name
-#                  namespace: gamma-events
+              has_progenitors:
+                  list: datasets.datasets
+                  entityName: Observation
+                  id: name.split("obs_").pop()
+                  namespace: gamma-events
 
     set_model:
         description:
