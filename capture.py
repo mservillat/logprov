@@ -114,13 +114,6 @@ def trace(func):
     return wrapper
 
 
-def get_activity_id():
-    # uuid example: ea5caa9f-0a76-42f5-a1a7-43752df755f0
-    # uuid[-12:]: 43752df755f0
-    # uuid[-6:]: f755f0
-    return str(uuid.uuid4())[-6:]
-
-
 def log_is_active(class_instance, activity):
     """Check if provenance option is enabled in configuration settings."""
 
@@ -132,6 +125,143 @@ def log_is_active(class_instance, activity):
     # if not class_instance.settings["general"]["logging"]["level"] == "PROV":
     #   active = False
     return active
+
+
+def get_activity_id():
+    # uuid example: ea5caa9f-0a76-42f5-a1a7-43752df755f0
+    # uuid[-12:]: 43752df755f0
+    # uuid[-6:]: f755f0
+    return str(uuid.uuid4())[-6:]
+
+
+def get_file_hash(path, method=HASH_TYPE):
+    """Helper function that returns hash of the content of a file."""
+
+    full_path = Path(os.path.expandvars(path))
+    if method != HASH_TYPE:
+        logger.warning(f"Hash method {method} not supported")
+        return full_path
+    if full_path.is_file():
+        block_size = 65536
+        hash_func = getattr(hashlib, HASH_TYPE)()
+        with open(full_path, "rb") as f:
+            buffer = f.read(block_size)
+            while len(buffer) > 0:
+                hash_func.update(buffer)
+                buffer = f.read(block_size)
+        file_hash = hash_func.hexdigest()
+        logger.debug(f"File entity {path} has {HASH_TYPE} hash {file_hash}")
+        return file_hash
+    else:
+        logger.warning(f"File entity {path} not found")
+        return path
+
+
+def get_entity_id(value, item):
+    """Helper function that makes the id of an entity, depending on its type."""
+
+    try:
+        entity_name = item["entityName"]
+        entity_type = definition["entities"][entity_name]["type"]
+    except Exception as ex:
+        logger.warning(f"{repr(ex)} in {item}")
+        entity_name = ""
+        entity_type = ""
+
+    if entity_type == "FileCollection":
+        filename = value
+        index = definition["entities"][entity_name].get("index", "")
+        if Path(os.path.expandvars(value)).is_dir() and index:
+            filename = Path(value) / index
+        return get_file_hash(filename)
+    if entity_type == "File":
+        return get_file_hash(value)
+
+    try:
+        return abs(hash(value) + hash(str(value)))
+    except TypeError:
+        # rk: two different objects may use the same memory address
+        # so use hash(entity_name) to avoid issues
+        return abs(id(value) + hash(entity_name))
+
+
+def get_nested_value(nested, branch):
+    """Helper function that gets a specific value in a nested dictionary or class."""
+
+    list_branch = branch.split(".")
+    leaf = list_branch.pop(0)
+    # return value of leaf
+    if not nested:
+        return globals().get(leaf, None)
+    # get value of leaf
+    if isinstance(nested, dict):
+        val = nested.get(leaf, None)
+    elif isinstance(nested, object):
+        if "(" in leaf:                                     # leaf is a function
+            leaf_elements = leaf.replace(")", "").split("(")
+            leaf_func = leaf_elements.pop(0)
+            leaf_args = {}
+            for arg in leaf_elements:
+                if "=" in arg:
+                    k, v = arg.split("=")
+                    leaf_args[k] = v.replace('"', "")
+            val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(**leaf_args)
+        else:                                               # leaf is an attribute
+            val = getattr(nested, leaf, None)
+    else:
+        raise TypeError
+    # continue to explore branch
+    if len(list_branch):
+        str_branch = ".".join(list_branch)
+        return get_nested_value(val, str_branch)
+    # return value of leaf
+    if not val:
+        val = globals().get(leaf, None)
+    return val
+
+
+def get_item_properties(nested, item):
+    """Helper function that returns properties of an entity or member."""
+
+    try:
+        entity_name = item["entityName"]
+        entity_type = definition["entities"][entity_name]["type"]
+    except Exception as ex:
+        logger.warning(f"{repr(ex)} in {item}")
+        entity_name = ""
+        entity_type = ""
+    value = ""
+    properties = {}
+    if "id" in item:
+        item_id = str(get_nested_value(nested, item["id"]))
+        item_ns = item.get("namespace", None)
+        if item_ns:
+            item_id = item_ns + ":" + item_id
+        properties["id"] = item_id
+    if "location" in item:
+        properties["location"] = get_nested_value(nested, item["location"])
+    if "value" in item:
+        value = get_nested_value(nested, item["value"])
+    if not value and "location" in properties:
+        value = properties["location"]
+    if value and "id" not in properties:
+        properties["id"] = get_entity_id(value, item)
+        if "File" in entity_type and properties["id"] != value:
+            properties["hash"] = properties["id"]
+            properties["hash_type"] = HASH_TYPE
+    if entity_name:
+        properties["name"] = entity_name
+        for attr in ["type", "contentType"]:
+            if attr in definition["entities"][entity_name]:
+                properties[attr] = definition["entities"][entity_name][attr]
+    return properties
+
+
+def log_prov_info(prov_dict):
+    """Write a dictionary to the logger."""
+
+    record_date = datetime.datetime.now().isoformat()
+    logger.info(f"{PROV_PREFIX}{record_date}{PROV_PREFIX}{prov_dict}")
 
 
 def log_session(class_instance, start):
@@ -334,136 +464,7 @@ def log_progenitors(entity_id, subitem, class_instance):
             log_prov_info(log_record)
 
 
-def log_prov_info(prov_dict):
-    """Write a dictionary to the logger."""
-
-    logger.info(f"{PROV_PREFIX}{prov_dict}")
-
-
-def get_entity_id(value, item):
-    """Helper function that makes the id of an entity, depending on its type."""
-
-    try:
-        entity_name = item["entityName"]
-        entity_type = definition["entities"][entity_name]["type"]
-    except Exception as ex:
-        logger.warning(f"{repr(ex)} in {item}")
-        entity_name = ""
-        entity_type = ""
-
-    if entity_type == "FileCollection":
-        filename = value
-        index = definition["entities"][entity_name].get("index", "")
-        if Path(os.path.expandvars(value)).is_dir() and index:
-            filename = Path(value) / index
-        return get_file_hash(filename)
-    if entity_type == "File":
-        return get_file_hash(value)
-
-    try:
-        return abs(hash(value) + hash(str(value)))
-    except TypeError:
-        # rk: two different objects may use the same memory address
-        # so use hash(entity_name) to avoid issues
-        return abs(id(value) + hash(entity_name))
-
-
-def get_item_properties(nested, item):
-    """Helper function that returns properties of an entity or member."""
-
-    try:
-        entity_name = item["entityName"]
-        entity_type = definition["entities"][entity_name]["type"]
-    except Exception as ex:
-        logger.warning(f"{repr(ex)} in {item}")
-        entity_name = ""
-        entity_type = ""
-    value = ""
-    properties = {}
-    if "id" in item:
-        item_id = str(get_nested_value(nested, item["id"]))
-        item_ns = item.get("namespace", None)
-        if item_ns:
-            item_id = item_ns + ":" + item_id
-        properties["id"] = item_id
-    if "location" in item:
-        properties["location"] = get_nested_value(nested, item["location"])
-    if "value" in item:
-        value = get_nested_value(nested, item["value"])
-    if not value and "location" in properties:
-        value = properties["location"]
-    if value and "id" not in properties:
-        properties["id"] = get_entity_id(value, item)
-        if "File" in entity_type and properties["id"] != value:
-            properties["hash"] = properties["id"]
-            properties["hash_type"] = HASH_TYPE
-    if entity_type:
-        properties["type"] = entity_type
-    if entity_name:
-        properties["name"] = entity_name
-    return properties
-
-
-def get_file_hash(path, method=HASH_TYPE):
-    """Helper function that returns hash of the content of a file."""
-
-    full_path = Path(os.path.expandvars(path))
-    if method != HASH_TYPE:
-        logger.warning(f"Hash method {method} not supported")
-        return full_path
-    if full_path.is_file():
-        block_size = 65536
-        hash_func = getattr(hashlib, HASH_TYPE)()
-        with open(full_path, "rb") as f:
-            buffer = f.read(block_size)
-            while len(buffer) > 0:
-                hash_func.update(buffer)
-                buffer = f.read(block_size)
-        file_hash = hash_func.hexdigest()
-        logger.debug(f"File entity {path} has {HASH_TYPE} hash {file_hash}")
-        return file_hash
-    else:
-        logger.warning(f"File entity {path} not found")
-        return path
-
-
-def get_nested_value(nested, branch):
-    """Helper function that gets a specific value in a nested dictionary or class."""
-
-    list_branch = branch.split(".")
-    leaf = list_branch.pop(0)
-    # return value of leaf
-    if not nested:
-        return globals().get(leaf, None)
-    # get value of leaf
-    if isinstance(nested, dict):
-        val = nested.get(leaf, None)
-    elif isinstance(nested, object):
-        if "(" in leaf:                                     # leaf is a function
-            leaf_elements = leaf.replace(")", "").split("(")
-            leaf_func = leaf_elements.pop(0)
-            leaf_args = {}
-            for arg in leaf_elements:
-                if "=" in arg:
-                    k, v = arg.split("=")
-                    leaf_args[k] = v.replace('"', "")
-            val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(**leaf_args)
-        else:                                               # leaf is an attribute
-            val = getattr(nested, leaf, None)
-    else:
-        raise TypeError
-    # continue to explore branch
-    if len(list_branch):
-        str_branch = ".".join(list_branch)
-        return get_nested_value(val, str_branch)
-    # return value of leaf
-    if not val:
-        val = globals().get(leaf, None)
-    return val
-
-
 # ctapipe inherited code starts here
-#
 
 
 def get_system_provenance():
