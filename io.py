@@ -45,8 +45,8 @@ def provlist2provdoc(provlist):
                 act = pdoc.activity(act_id)
                 records[act_id] = act
             # activity name
-            if "activity_name" in provdict:
-                act.add_attributes({"prov:label": provdict.pop("activity_name")})
+            if "name" in provdict:
+                act.add_attributes({"prov:label": provdict.pop("name")})
             # activity start
             if "startTime" in provdict:
                 act.set_time(
