@@ -226,16 +226,23 @@ def get_usage_records(class_instance, activity, activity_id):
     for item in usage_list:
         props = get_item_properties(class_instance, item)
         if "id" in props:
+            entity_id = props.pop("id")
+            # Record usage
             log_record = {
                 "activity_id": activity_id,
-                "used_id": props["id"],
+                "used_id": entity_id,
             }
             if "role" in item:
                 log_record.update({"used_role": item["role"]})
+            # Record entity
+            log_record_ent = {
+                "entity_id": entity_id,
+            }
             if "entityName" in item:
-                log_record.update({"entity_type": item["entityName"]})
-            if "location" in props:
-                log_record.update({"entity_location": props["location"]})
+                log_record_ent.update({"name": item["entityName"]})
+            for prop in props:
+                log_record_ent.update({prop: props[prop]})
+            records.append(log_record_ent)
             records.append(log_record)
     return records
 
@@ -247,23 +254,30 @@ def log_generation(class_instance, activity, activity_id):
     for item in generation_list:
         props = get_item_properties(class_instance, item)
         if "id" in props:
+            entity_id = props.pop("id")
+            # Record generation
             if "value" in item:
-                traced_entities[item["value"]] = (props["id"], item)
+                traced_entities[item["value"]] = (entity_id, item)
             log_record = {
                 "activity_id": activity_id,
-                "generated_id": props["id"],
+                "generated_id": entity_id,
             }
             if "role" in item:
                 log_record.update({"generated_role": item["role"]})
+            # Record entity
+            log_record_ent = {
+                "entity_id": entity_id,
+            }
             if "entityName" in item:
-                log_record.update({"entity_type": item["entityName"]})
-            if "location" in props:
-                log_record.update({"entity_location": props["location"]})
+                log_record_ent.update({"name": item["entityName"]})
+            for prop in props:
+                log_record_ent.update({prop: props[prop]})
+            log_prov_info(log_record_ent)
             log_prov_info(log_record)
             if "has_members" in item:
-                log_members(props["id"], item["has_members"], class_instance)
+                log_members(entity_id, item["has_members"], class_instance)
             if "has_progenitors" in item:
-                log_progenitors(props["id"], item["has_progenitors"], class_instance)
+                log_progenitors(entity_id, item["has_progenitors"], class_instance)
 
 
 def log_members(entity_id, subitem, class_instance):
@@ -276,14 +290,21 @@ def log_members(entity_id, subitem, class_instance):
     for member in member_list:
         props = get_item_properties(member, subitem)
         if "id" in props:
+            mem_id = props.pop("id")
+            # Record membership
             log_record = {
                 "entity_id": entity_id,
-                "member_id": props["id"]
+                "member_id": mem_id,
+            }
+            # Record entity
+            log_record_ent = {
+                "entity_id": mem_id,
             }
             if "entityName" in subitem:
-                log_record.update({"member_type": subitem["entityName"]})
-            if "location" in props:
-                log_record.update({"member_location": props["location"]})
+                log_record_ent.update({"name": subitem["entityName"]})
+            for prop in props:
+                log_record_ent.update({prop: props[prop]})
+            log_prov_info(log_record_ent)
             log_prov_info(log_record)
 
 
@@ -297,12 +318,19 @@ def log_progenitors(entity_id, subitem, class_instance):
     for entity in progenitor_list:
         props = get_item_properties(entity, subitem)
         if "id" in props:
+            progen_id = props.pop("id")
+            # Record progenitor link
             log_record = {
                 "entity_id": entity_id,
-                "progenitor_id": props["id"]
+                "progenitor_id": progen_id,
             }
-            if "location" in props:
-                log_record.update({"progenitor_location": props["location"]})
+            # Record entity
+            log_record_ent = {
+                "entity_id": progen_id,
+            }
+            for prop in props:
+                log_record_ent.update({prop: props[prop]})
+            log_prov_info(log_record_ent)
             log_prov_info(log_record)
 
 
@@ -343,6 +371,13 @@ def get_entity_id(value, item):
 def get_item_properties(nested, item):
     """Helper function that returns properties of an entity or member."""
 
+    try:
+        entity_name = item["entityName"]
+        entity_type = definition["entities"][entity_name]["type"]
+    except Exception as ex:
+        logger.warning(f"{repr(ex)} in {item}")
+        entity_name = ""
+        entity_type = ""
     value = ""
     properties = {}
     if "id" in item:
@@ -359,6 +394,13 @@ def get_item_properties(nested, item):
         value = properties["location"]
     if value and "id" not in properties:
         properties["id"] = get_entity_id(value, item)
+        if "File" in entity_type and properties["id"] != value:
+            properties["hash"] = properties["id"]
+            properties["hash_type"] = HASH_TYPE
+    if entity_type:
+        properties["type"] = entity_type
+    if entity_name:
+        properties["name"] = entity_name
     return properties
 
 
