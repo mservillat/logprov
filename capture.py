@@ -280,9 +280,9 @@ def log_session(class_instance, start):
         system = get_system_provenance()
         log_record = {
             "session_id": session_id,
-            "session_name": session_name,
+            "name": session_name,
             "startTime": start,
-            "config": class_instance.config.filename,
+            "configFile": class_instance.config.filename,
             "system": system,
         }
         log_prov_info(log_record)
