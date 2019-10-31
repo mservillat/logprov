@@ -102,7 +102,7 @@ def provlist2provdoc(provlist):
                 rol = provdict.pop("used_role", None)
                 # if rol:
                 #     ent.add_attributes({'prov:label': rol})
-                act.used(ent_id, attributes={"prov:role": rol})
+                act.used(ent, attributes={"prov:role": rol})
             # generation
             if "generated_id" in provdict:
                 ent_id = str(provdict.pop("generated_id"))
@@ -190,7 +190,7 @@ def provdoc2svg(provdoc, filename):
         svg_content = dot.create(format="svg")
     except InvocationException as e:
         svg_content = ""
-        print("problem while creating svg content")
+        print(f"problem while creating svg content: {repr(e)}")
     with open(filename, "wb") as f:
         f.write(svg_content)
 
