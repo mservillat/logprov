@@ -179,8 +179,8 @@ def get_entity_id(value, item):
 
     try:
         entity_id = abs(hash(value) + hash(str(value)))
-        if hasattr(value, "logprov_version"):
-            entity_id += getattr(value, "logprov_version")
+        if hasattr(value, "entity_version"):
+            entity_id += getattr(value, "entity_version")
         return entity_id
     except TypeError:
         # rk: two different objects may use the same memory address
@@ -252,14 +252,14 @@ def get_item_properties(nested, item):
     if not value and "location" in properties:
         value = properties["location"]
     if "overwrite" in item:
-        # Add or increment logprov_version to make value a different entity
-        if hasattr(value, "logprov_version"):
-            version = getattr(value, "logprov_version")
+        # Add or increment entity_version to make value a different entity
+        if hasattr(value, "entity_version"):
+            version = getattr(value, "entity_version")
             version += 1
-            setattr(value, "logprov_version", version)
+            setattr(value, "entity_version", version)
         else:
             try:
-                setattr(value, "logprov_version", 1)
+                setattr(value, "entity_version", 1)
             except AttributeError as ex:
                 logger.warning(f"{repr(ex)} for {value}")
     if value and "id" not in properties:
