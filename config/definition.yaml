@@ -118,10 +118,6 @@ activities:
               entityName: Mask
               location: settings.datasets.background.exclusion_mask.filename
         generation:
-            - role: background_estimator
-              description: "ReflectedRegionsBackgroundEstimator object"
-              entityName: ReflectedRegionsBackgroundEstimator
-              value: background_estimator
             - role: reduced_datasets
               description: "Datasets produced in the reduction process"
               entityName: Datasets
@@ -250,10 +246,6 @@ entities:
     Dataset:
         description: "A dataset: spectrum, map or flux-points"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Dataset
-        type: PythonObject
-    ReflectedRegionsBackgroundEstimator:
-        description: "A ReflectedRegionsBackgroundEstimator object"
-        docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.ReflectedRegionsBackgroundEstimator
         type: PythonObject
     SkyModel:
         description: "A generic SkyModel"
