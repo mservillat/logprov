@@ -251,10 +251,6 @@ entities:
         description: "A dataset: spectrum, map or flux-points"
         docurl: https://docs.gammapy.org/dev/api/gammapy.modeling.Dataset
         type: PythonObject
-    SpectrumExtraction:
-        description: "A SpectrumExtraction object"
-        docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.SpectrumExtraction
-        type: PythonObject
     ReflectedRegionsBackgroundEstimator:
         description: "A ReflectedRegionsBackgroundEstimator object"
         docurl: https://docs.gammapy.org/dev/api/gammapy.spectrum.ReflectedRegionsBackgroundEstimator
