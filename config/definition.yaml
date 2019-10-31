@@ -143,21 +143,21 @@ activities:
             - role: model_file
               entityName: YAMLFile
               location: kwargs.filename
-#            - role: reduced datasets
-#              description: "Datasets produced in the reduction process"
-#              entityName: Datasets
-#              value: datasets
+            - role: reduced_datasets
+              description: "Datasets produced in the reduction process"
+              entityName: Datasets
+              value: datasets
         generation:
             - role: model
               description: "Parametric composed model"
               entityName: SkyModel
               value: model
 #           TODO add a derived dataset
-#           - role: datasets with model
-#             description: "Datasets with initial model"
-#             entityName: Datasets
-#             location: datasets
-
+            - role: datasets_with_model
+              description: "Datasets with initial model"
+              entityName: Datasets
+              value: datasets
+              overwrite: true
 
     run_fit:
         description: "Fitting reduced data sets to model"
@@ -192,10 +192,11 @@ activities:
               entityName: SkyModel
               value: model
 #           TODO add a derived dataset
-#           - entityName: Datasets
-#             description: "Datasets fitted to model"
-#             location: datasets
-#             role: datasets with model
+            - role: datasets_with_fitted_model
+              description: "Datasets fitted to model"
+              entityName: Datasets
+              value: datasets
+              overwrite: true
 
     get_flux_points:
         description: "Calculate flux points"

@@ -178,7 +178,10 @@ def get_entity_id(value, item):
         return get_file_hash(value)
 
     try:
-        return abs(hash(value) + hash(str(value)))
+        entity_id = abs(hash(value) + hash(str(value)))
+        if hasattr(value, "logprov_version"):
+            entity_id += getattr(value, "logprov_version")
+        return entity_id
     except TypeError:
         # rk: two different objects may use the same memory address
         # so use hash(entity_name) to avoid issues
@@ -248,6 +251,17 @@ def get_item_properties(nested, item):
         value = get_nested_value(nested, item["value"])
     if not value and "location" in properties:
         value = properties["location"]
+    if "overwrite" in item:
+        # Add or increment logprov_version to make value a different entity
+        if hasattr(value, "logprov_version"):
+            version = getattr(value, "logprov_version")
+            version += 1
+            setattr(value, "logprov_version", version)
+        else:
+            try:
+                setattr(value, "logprov_version", 1)
+            except AttributeError as ex:
+                logger.warning(f"{repr(ex)} for {value}")
     if value and "id" not in properties:
         properties["id"] = get_entity_id(value, item)
         if "File" in entity_type and properties["id"] != value:
