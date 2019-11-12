@@ -44,8 +44,8 @@ definition = yaml.safe_load(SCHEMA_FILE.read_text())
 provconfig = yaml.safe_load(LOGGER_FILE.read_text())
 logger = logging.getLogger('provLogger')
 
-PROV_PREFIX = "_PROV_"   # TODO replace with specific log level
-HASH_TYPE = "md5"        # TODO replace with config parameter
+PROV_PREFIX = "_PROV_"
+SUPPORTED_HASH_TYPE = "md5"
 
 # global variables
 sessions = []
@@ -134,23 +134,36 @@ def get_activity_id():
     return str(uuid.uuid4())[-6:]
 
 
-def get_file_hash(path, method=HASH_TYPE):
+def get_hash_method():
+    """Helper function that returns hash method used."""
+
+    try:
+        method = provconfig["HASH_TYPE"]
+    except:
+        method = "md5"
+    if method != SUPPORTED_HASH_TYPE:
+        logger.warning(f"Hash method {method} not supported")
+        method = "Full path"
+    return method
+
+
+def get_file_hash(path):
     """Helper function that returns hash of the content of a file."""
 
+    method = get_hash_method()
     full_path = Path(os.path.expandvars(path))
-    if method != HASH_TYPE:
-        logger.warning(f"Hash method {method} not supported")
+    if method == "Full path":
         return full_path
     if full_path.is_file():
         block_size = 65536
-        hash_func = getattr(hashlib, HASH_TYPE)()
+        hash_func = getattr(hashlib, method)()
         with open(full_path, "rb") as f:
             buffer = f.read(block_size)
             while len(buffer) > 0:
                 hash_func.update(buffer)
                 buffer = f.read(block_size)
         file_hash = hash_func.hexdigest()
-        logger.debug(f"File entity {path} has {HASH_TYPE} hash {file_hash}")
+        logger.debug(f"File entity {path} has {method} hash {file_hash}")
         return file_hash
     else:
         logger.warning(f"File entity {path} not found")
@@ -265,8 +278,9 @@ def get_item_properties(nested, item):
     if value and "id" not in properties:
         properties["id"] = get_entity_id(value, item)
         if "File" in entity_type and properties["id"] != value:
+            method = get_hash_method()
             properties["hash"] = properties["id"]
-            properties["hash_type"] = HASH_TYPE
+            properties["hash_type"] = method
     if entity_name:
         properties["name"] = entity_name
         for attr in ["type", "contentType"]:

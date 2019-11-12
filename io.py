@@ -7,7 +7,7 @@ import yaml
 from prov.model import ProvDocument
 
 # TODO remove
-PROV_PREFIX = "_PROV_"      # TODO replace with specific log level
+PROV_PREFIX = "_PROV_"
 DEFAULT_NS = "id"           # "logprov"
 
 __all__ = ["provlist2provdoc", "provdoc2svg", "read_prov"]
