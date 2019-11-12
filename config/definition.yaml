@@ -68,9 +68,10 @@ activities:
             - role: datastore
               description: "DataStore object file"
               entityName: DataStore
+              value: datastore
               location: settings.observations.datastore
         generation:
-            - role: selected_observations
+            - role: observations_selected
               description: "Observations selected"
               entityName: Observations
               value: observations
@@ -148,12 +149,12 @@ activities:
               entityName: Datasets
               value: datasets
         generation:
-            - role: model
+            - role: initial_model
               description: "Parametric composed model"
               entityName: SkyModel
               value: model
 #           TODO add a derived dataset
-            - role: datasets_with_model
+            - role: datasets_with_initial_model
               description: "Datasets with initial model"
               entityName: Datasets
               value: datasets
@@ -170,13 +171,9 @@ activities:
               value: kwargs.optimize_opts
         usage:
             - role: datasets
-              description: "Datasets to fit with initial model"
+              description: "Datasets with initial model"
               entityName: Datasets
               value: datasets
-            - role: model
-              description: "Parametric composed model"
-              entityName: SkyModel
-              value: model
         generation:
             - role: fit_object
               description: "Object that stores fitting parameters"
@@ -212,7 +209,7 @@ activities:
               description: "Datasets with fitted model where to calculate the flux points"
               entityName: Datasets
               value: datasets
-            - role: model
+            - role: fitted_model
               description: "Parametric composed model"
               entityName: SkyModel
               value: model
