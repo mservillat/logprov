@@ -153,12 +153,11 @@ activities:
               description: "Parametric composed model"
               entityName: SkyModel
               value: model
-#           TODO add a derived dataset
+#           TODO this is a derived dataset
             - role: datasets_with_initial_model
               description: "Datasets with initial model"
               entityName: Datasets
               value: datasets
-              overwrite: true
 
     run_fit:
         description: "Fitting reduced data sets to model"
@@ -193,7 +192,6 @@ activities:
               description: "Datasets fitted to model"
               entityName: Datasets
               value: datasets
-              overwrite: true
 
     get_flux_points:
         description: "Calculate flux points"
