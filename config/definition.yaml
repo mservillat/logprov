@@ -123,11 +123,16 @@ activities:
               description: "Datasets produced in the reduction process"
               entityName: Datasets
               value: datasets
-              has_progenitors:
-                  list: datasets.datasets
-                  entityName: Observation
-                  id: name.split("obs_").pop()
-                  namespace: gamma-events
+# TODO handle name properties in gammapy
+              has_members:
+                  list: datasets
+                  entityName: Dataset
+                  id: name
+#                  id: __hash__().__abs__()
+#              has_progenitors:
+#                  entityName: Observations
+#                  value: observations
+
 
     set_model:
         description:
@@ -187,7 +192,7 @@ activities:
               description: "Parametric composed model fitted on datasets"
               entityName: SkyModel
               value: model
-#           TODO add a derived dataset
+#           TODO this is a derived dataset
             - role: datasets_with_fitted_model
               description: "Datasets fitted to model"
               entityName: Datasets

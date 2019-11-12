@@ -76,7 +76,7 @@ def provlist2provdoc(provlist):
                 else:
                     agent = pdoc.agent(agent_id)
                     records[agent_id] = agent
-                act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
+                #act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
             if "parameters" in provdict:
                 params_record = provdict.pop("parameters")
                 params = {
