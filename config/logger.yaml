@@ -17,3 +17,4 @@ loggers:
         propagate: False
 disable_existing_loggers: False
 HASH_TYPE: md5
+capture: True

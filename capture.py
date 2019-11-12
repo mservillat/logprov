@@ -122,8 +122,8 @@ def log_is_active(class_instance, activity):
         active = False
     if not class_instance:
         active = False
-    # if not class_instance.settings["general"]["logging"]["level"] == "PROV":
-    #   active = False
+    if "capture" not in provconfig or not provconfig["capture"]:
+        active = False
     return active
 
 
