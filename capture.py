@@ -20,7 +20,7 @@ from gammapy.scripts.info import (
     get_info_version,
 )
 
-__all__ = ["provenance"]
+__all__ = ["provenance", "log_file_generation"]
 
 _interesting_env_vars = [
     "CONDA_DEFAULT_ENV",
@@ -494,6 +494,53 @@ def log_progenitors(entity_id, subitem, class_instance):
                 log_record_ent.update({prop: props[prop]})
             log_prov_info(log_record_ent)
             log_prov_info(log_record)
+
+
+def log_file_generation(file_path, entity_name="", used=[], role="", activity_name=""):
+    # get file properties
+    if os.path.isfile(file_path):
+        item = dict(
+            file_path=file_path,
+            entityName=entity_name,
+        )
+        entity_id = get_entity_id(file_path, item)
+        log_record = {
+            "entity_id": entity_id,
+            "name": entity_name,
+            "location": file_path,
+            "hash": entity_id,
+            "hash_type": HASH_TYPE,
+        }
+        log_prov_info(log_record)
+        if activity_name:
+            activity_id = get_activity_id()
+            log_record = {
+                "activity_id": activity_id,
+                "name": activity_name,
+            }
+            log_prov_info(log_record)
+            for used_entity in used:
+                used_id = get_entity_id(used_entity, {})
+                log_record = {
+                    "activity_id": activity_id,
+                    "used_id": used_id,
+                }
+                log_prov_info(log_record)
+            log_record = {
+                "activity_id": activity_id,
+                "generated_id": entity_id,
+            }
+            if role:
+                log_record.update({"generated_role": role})
+            log_prov_info(log_record)
+        else:
+            for used_entity in used:
+                used_id = get_entity_id(used_entity, {})
+                log_record = {
+                    "entity_id": entity_id,
+                    "progenitor_id": used_id,
+                }
+                log_prov_info(log_record)
 
 
 # ctapipe inherited code starts here
