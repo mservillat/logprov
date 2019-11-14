@@ -20,7 +20,7 @@ from gammapy.scripts.info import (
     get_info_version,
 )
 
-__all__ = ["provenance", "log_file_generation"]
+__all__ = ["provenance"]
 
 _interesting_env_vars = [
     "CONDA_DEFAULT_ENV",
@@ -44,8 +44,8 @@ definition = yaml.safe_load(SCHEMA_FILE.read_text())
 provconfig = yaml.safe_load(LOGGER_FILE.read_text())
 logger = logging.getLogger('provLogger')
 
-PROV_PREFIX = "_PROV_"   # TODO replace with specific log level
-HASH_TYPE = "md5"        # TODO replace with config parameter
+PROV_PREFIX = "_PROV_"
+SUPPORTED_HASH_TYPE = "md5"
 
 # global variables
 sessions = []
@@ -122,8 +122,8 @@ def log_is_active(class_instance, activity):
         active = False
     if not class_instance:
         active = False
-    # if not class_instance.settings["general"]["logging"]["level"] == "PROV":
-    #   active = False
+    if "capture" not in provconfig or not provconfig["capture"]:
+        active = False
     return active
 
 
@@ -134,23 +134,36 @@ def get_activity_id():
     return str(uuid.uuid4())[-6:]
 
 
-def get_file_hash(path, method=HASH_TYPE):
+def get_hash_method():
+    """Helper function that returns hash method used."""
+
+    try:
+        method = provconfig["HASH_TYPE"]
+    except:
+        method = "md5"
+    if method != SUPPORTED_HASH_TYPE:
+        logger.warning(f"Hash method {method} not supported")
+        method = "Full path"
+    return method
+
+
+def get_file_hash(path):
     """Helper function that returns hash of the content of a file."""
 
+    method = get_hash_method()
     full_path = Path(os.path.expandvars(path))
-    if method != HASH_TYPE:
-        logger.warning(f"Hash method {method} not supported")
+    if method == "Full path":
         return full_path
     if full_path.is_file():
         block_size = 65536
-        hash_func = getattr(hashlib, HASH_TYPE)()
+        hash_func = getattr(hashlib, method)()
         with open(full_path, "rb") as f:
             buffer = f.read(block_size)
             while len(buffer) > 0:
                 hash_func.update(buffer)
                 buffer = f.read(block_size)
         file_hash = hash_func.hexdigest()
-        logger.debug(f"File entity {path} has {HASH_TYPE} hash {file_hash}")
+        logger.debug(f"File entity {path} has {method} hash {file_hash}")
         return file_hash
     else:
         logger.warning(f"File entity {path} not found")
@@ -265,8 +278,9 @@ def get_item_properties(nested, item):
     if value and "id" not in properties:
         properties["id"] = get_entity_id(value, item)
         if "File" in entity_type and properties["id"] != value:
+            method = get_hash_method()
             properties["hash"] = properties["id"]
-            properties["hash_type"] = HASH_TYPE
+            properties["hash_type"] = method
     if entity_name:
         properties["name"] = entity_name
         for attr in ["type", "contentType"]:
@@ -480,53 +494,6 @@ def log_progenitors(entity_id, subitem, class_instance):
                 log_record_ent.update({prop: props[prop]})
             log_prov_info(log_record_ent)
             log_prov_info(log_record)
-
-
-def log_file_generation(file_path, entity_name="", used=[], role="", activity_name=""):
-    # get file properties
-    if os.path.isfile(file_path):
-        item = dict(
-            file_path=file_path,
-            entityName=entity_name,
-        )
-        entity_id = get_entity_id(file_path, item)
-        log_record = {
-            "entity_id": entity_id,
-            "name": entity_name,
-            "location": file_path,
-            "hash": entity_id,
-            "hash_type": HASH_TYPE,
-        }
-        log_prov_info(log_record)
-        if activity_name:
-            activity_id = get_activity_id()
-            log_record = {
-                "activity_id": activity_id,
-                "name": activity_name,
-            }
-            log_prov_info(log_record)
-            for used_entity in used:
-                used_id = get_entity_id(used_entity, {})
-                log_record = {
-                    "activity_id": activity_id,
-                    "used_id": used_id,
-                }
-                log_prov_info(log_record)
-            log_record = {
-                "activity_id": activity_id,
-                "generated_id": entity_id,
-            }
-            if role:
-                log_record.update({"generated_role": role})
-            log_prov_info(log_record)
-        else:
-            for used_entity in used:
-                used_id = get_entity_id(used_entity, {})
-                log_record = {
-                    "entity_id": entity_id,
-                    "progenitor_id": used_id,
-                }
-                log_prov_info(log_record)
 
 
 # ctapipe inherited code starts here

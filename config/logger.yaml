@@ -6,7 +6,7 @@ formatters:
         datefmt: '%Y-%m-%dT%H:%M:%S'
 handlers:
     provHandler:
-        class: logging.FileHandler
+        class: logging.handlers.WatchedFileHandler
         level: INFO
         formatter: simple
         filename: prov.log
@@ -16,3 +16,5 @@ loggers:
         handlers: [provHandler]
         propagate: False
 disable_existing_loggers: False
+HASH_TYPE: md5
+capture: True

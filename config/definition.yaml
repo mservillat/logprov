@@ -68,9 +68,9 @@ activities:
             - role: datastore
               description: "DataStore object file"
               entityName: DataStore
-              location: settings.observations.datastore
+              value: settings.observations.datastore
         generation:
-            - role: selected_observations
+            - role: observations_selected
               description: "Observations selected"
               entityName: Observations
               value: observations
@@ -122,11 +122,16 @@ activities:
               description: "Datasets produced in the reduction process"
               entityName: Datasets
               value: datasets
-              has_progenitors:
-                  list: datasets.datasets
-                  entityName: Observation
-                  id: name.split("obs_").pop()
-                  namespace: gamma-events
+# TODO handle name properties in gammapy
+              has_members:
+                  list: datasets
+                  entityName: Dataset
+                  id: name
+#                  id: __hash__().__abs__()
+#              has_progenitors:
+#                  entityName: Observations
+#                  value: observations
+
 
     set_model:
         description:
@@ -148,16 +153,15 @@ activities:
               entityName: Datasets
               value: datasets
         generation:
-            - role: model
+            - role: initial_model
               description: "Parametric composed model"
               entityName: SkyModel
               value: model
-#           TODO add a derived dataset
-            - role: datasets_with_model
+#           TODO this is a derived dataset
+            - role: datasets_with_initial_model
               description: "Datasets with initial model"
               entityName: Datasets
               value: datasets
-              overwrite: true
 
     run_fit:
         description: "Fitting reduced data sets to model"
@@ -170,13 +174,9 @@ activities:
               value: kwargs.optimize_opts
         usage:
             - role: datasets
-              description: "Datasets to fit with initial model"
+              description: "Datasets with initial model"
               entityName: Datasets
               value: datasets
-            - role: model
-              description: "Parametric composed model"
-              entityName: SkyModel
-              value: model
         generation:
             - role: fit_object
               description: "Object that stores fitting parameters"
@@ -191,12 +191,11 @@ activities:
               description: "Parametric composed model fitted on datasets"
               entityName: SkyModel
               value: model
-#           TODO add a derived dataset
+#           TODO this is a derived dataset
             - role: datasets_with_fitted_model
               description: "Datasets fitted to model"
               entityName: Datasets
               value: datasets
-              overwrite: true
 
     get_flux_points:
         description: "Calculate flux points"
@@ -212,7 +211,7 @@ activities:
               description: "Datasets with fitted model where to calculate the flux points"
               entityName: Datasets
               value: datasets
-            - role: model
+            - role: fitted_model
               description: "Parametric composed model"
               entityName: SkyModel
               value: model

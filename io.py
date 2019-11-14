@@ -7,7 +7,7 @@ import yaml
 from prov.model import ProvDocument
 
 # TODO remove
-PROV_PREFIX = "_PROV_"      # TODO replace with specific log level
+PROV_PREFIX = "_PROV_"
 DEFAULT_NS = "id"           # "logprov"
 
 __all__ = ["provlist2provdoc", "provdoc2svg", "read_prov"]
@@ -76,7 +76,7 @@ def provlist2provdoc(provlist):
                 else:
                     agent = pdoc.agent(agent_id)
                     records[agent_id] = agent
-                act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
+                #act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
             if "parameters" in provdict:
                 params_record = provdict.pop("parameters")
                 params = {
