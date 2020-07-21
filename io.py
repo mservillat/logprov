@@ -21,12 +21,13 @@ def provlist2provdoc(provlist):
     records = {}
     for provdict in provlist:
         if "session_id" in provdict:
-            sess_id = DEFAULT_NS + ":" + str(provdict.pop("session_id"))
+            sess_id = str(provdict.pop("session_id"))
+            sess_qid = DEFAULT_NS + ":" + sess_id
             if sess_id in records:
-                sess = records[sess_id]
+                sess = records[sess_qid]
             else:
-                sess = pdoc.entity(sess_id)
-                records[sess_id] = sess
+                sess = pdoc.entity(sess_qid)
+                records[sess_qid] = sess
             sess.add_attributes(
                 {
                     "prov:label": provdict.pop("name"),
@@ -59,7 +60,7 @@ def provlist2provdoc(provlist):
                 )
             # in session?
             # if "in_session" in provdict:
-            #     sess_id = DEFAULT_NS + ":" + str(provdict.pop("in_session"])
+            #     sess_qid = DEFAULT_NS + ":" + str(provdict.pop("in_session"])
             #     pdoc.wasInfluencedBy(
             #         act_id, sess_id
             #     )  # , other_attributes={'prov:type': "Context"})
@@ -84,13 +85,13 @@ def provlist2provdoc(provlist):
                 }
                 par = pdoc.entity(act_id + "_parameters", other_attributes=params)
                 par.add_attributes({"prov:type": "Parameters"})
-                par.add_attributes({"prov:label": "Parameters"})
+                par.add_attributes({"prov:label": "WasConfiguredBy"})
                 act.used(par, attributes={"prov:type": "Setup"})
             # usage
             if "used_id" in provdict:
                 ent_id = str(provdict.pop("used_id"))
                 if ":" not in ent_id:
-                    ent_id = DEFAULT_NS + ":" + ent_id
+                    ent_id = DEFAULT_NS + ":" + ent_id + "_" + sess_id
                 else:
                     new_ns = ent_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -107,7 +108,7 @@ def provlist2provdoc(provlist):
             if "generated_id" in provdict:
                 ent_id = str(provdict.pop("generated_id"))
                 if ":" not in ent_id:
-                    ent_id = DEFAULT_NS + ":" + ent_id
+                    ent_id = DEFAULT_NS + ":" + ent_id + "_" + sess_id
                 else:
                     new_ns = ent_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -126,7 +127,7 @@ def provlist2provdoc(provlist):
         if "entity_id" in provdict:
             ent_id = str(provdict.pop("entity_id"))
             if ":" not in ent_id:
-                ent_id = DEFAULT_NS + ":" + ent_id
+                ent_id = DEFAULT_NS + ":" + ent_id + "_" + sess_id
             else:
                 new_ns = ent_id.split(":").pop(0)
                 pdoc.add_namespace(new_ns, new_ns + ":")
@@ -147,7 +148,7 @@ def provlist2provdoc(provlist):
             if "member_id" in provdict:
                 mem_id = str(provdict.pop("member_id"))
                 if ":" not in mem_id:
-                    mem_id = DEFAULT_NS + ":" + mem_id
+                    mem_id = DEFAULT_NS + ":" + mem_id + "_" + sess_id
                 else:
                     new_ns = mem_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -160,7 +161,7 @@ def provlist2provdoc(provlist):
             if "progenitor_id" in provdict:
                 progen_id = str(provdict.pop("progenitor_id"))
                 if ":" not in progen_id:
-                    progen_id = DEFAULT_NS + ":" + progen_id
+                    progen_id = DEFAULT_NS + ":" + progen_id + "_" + sess_id
                 else:
                     new_ns = progen_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
