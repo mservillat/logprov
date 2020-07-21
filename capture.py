@@ -509,7 +509,7 @@ def log_file_generation(file_path, entity_name="", used=[], role="", activity_na
             "name": entity_name,
             "location": file_path,
             "hash": entity_id,
-            "hash_type": HASH_TYPE,
+            "hash_type": provconfig["HASH_TYPE"],
         }
         log_prov_info(log_record)
         if activity_name:
