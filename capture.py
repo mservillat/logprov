@@ -286,6 +286,8 @@ def get_item_properties(nested, item):
         for attr in ["type", "contentType"]:
             if attr in definition["entities"][entity_name]:
                 properties[attr] = definition["entities"][entity_name][attr]
+    if "location" in properties and properties["location"]:
+        properties["location"] = os.path.expandvars(properties["location"])
     return properties
 
 
