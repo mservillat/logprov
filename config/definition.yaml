@@ -68,7 +68,7 @@ activities:
             - role: datastore
               description: "DataStore object file"
               entityName: DataStore
-              value: settings.observations.datastore
+              location: settings.observations.datastore
         generation:
             - role: observations_selected
               description: "Observations selected"
