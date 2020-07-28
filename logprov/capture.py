@@ -37,7 +37,7 @@ _interesting_env_vars = [
     "SHELL",
 ]
 
-CONFIG_PATH = Path(__file__).resolve().parent / "config"
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "config"
 SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
 LOGGER_FILE = CONFIG_PATH / "logger.yaml"
 definition = yaml.safe_load(SCHEMA_FILE.read_text())
@@ -50,6 +50,12 @@ SUPPORTED_HASH_TYPE = "md5"
 # global variables
 sessions = []
 traced_entities = {}
+
+#TODO:
+# setup logprov with:
+#  definition.yaml
+#  config: logfile name, hash type, prefix...
+# should we import an instance of a class? setting up .config= and .definition= + global variables
 
 
 def setup_logging():
@@ -548,17 +554,11 @@ def log_file_generation(file_path, entity_name="", used=[], role="", activity_na
 # ctapipe inherited code starts here
 
 
-def get_system_provenance():
+def get_system_provenance(additional_dict=None):
     """Return JSON string containing provenance for all things that are fixed during the runtime."""
 
     bits, linkage = platform.architecture()
-
-    return dict(
-        # gammapy specific
-        version=get_info_version(),
-        dependencies=get_info_dependencies(),
-        envvars=get_info_envvar(),
-        # gammapy specific
+    system_dict = dict(
         executable=sys.executable,
         platform=dict(
             architecture_bits=bits,
@@ -583,6 +583,10 @@ def get_system_provenance():
         arguments=sys.argv,
         start_time_utc=datetime.datetime.now().isoformat(),
     )
+    # Include additional dict provided
+    if additional_dict:
+        system_dict.update(additional_dict)
+    return system_dict
 
 
 def get_env_vars():
