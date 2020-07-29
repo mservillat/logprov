@@ -111,7 +111,7 @@ class LogProv(object):
             session_id = self.log_session(class_instance, start)
             for log_record in derivation_records:
                 self.log_prov_info(log_record)
-                self.log_start_activity(activity, activity_id, session_id, start)
+            self.log_start_activity(activity, activity_id, session_id, start)
             for log_record in parameter_records:
                 self.log_prov_info(log_record)
             for log_record in usage_records:
