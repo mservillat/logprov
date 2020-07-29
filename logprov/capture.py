@@ -13,6 +13,7 @@ from functools import wraps
 from pathlib import Path
 import psutil
 import yaml
+import inspect
 # gammapy specific
 from gammapy.scripts.info import (
     get_info_dependencies,
@@ -20,7 +21,7 @@ from gammapy.scripts.info import (
     get_info_version,
 )
 
-__all__ = ["LogProv"]
+__all__ = ["ProvCapture"]
 
 _interesting_env_vars = [
     "CONDA_DEFAULT_ENV",
@@ -37,25 +38,18 @@ _interesting_env_vars = [
     "SHELL",
 ]
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config"
-SCHEMA_FILE = CONFIG_PATH / "definition.yaml"
-LOGGER_FILE = CONFIG_PATH / "logger.yaml"
-definition = yaml.safe_load(SCHEMA_FILE.read_text())
-provconfig = yaml.safe_load(LOGGER_FILE.read_text())
-logger = logging.getLogger('provLogger')
-
 PROV_PREFIX = "_PROV_"
 SUPPORTED_HASH_TYPE = "md5"
 
 
-#TODO:
+# TODO:
 # setup logprov with:
 #  definition.yaml
 #  config: logfile name, hash type, prefix...
 # should we import an instance of a class? setting up .config= and .definition= + global variables
 
 
-class LogProv(object):
+class ProvCapture(object):
 
     def __init__(self, config=None, definitions=None):
         self.config = config
@@ -63,27 +57,31 @@ class LogProv(object):
         # global variables
         self.sessions = []
         self.traced_entities = {}
-
-    def setup_logging(self):
-        """Setup logging configuration."""
-
+        # initialize logger
         try:
-            logging.config.dictConfig(provconfig)
+            logging.config.dictConfig(self.config)
         except Exception as ex:
             print(str(ex))
             print('Failed to set up the logger.')
             logging.basicConfig(level="INFO")
+        self.logger = logging.getLogger('provLogger')
 
-    def provenance(self, cls):
+    def wrap_methods(self, cls):
         """A function decorator which decorates the methods with trace function."""
-        self.setup_logging()
         for attr in cls.__dict__:
-            if attr in definition["activities"].keys() and callable(getattr(cls, attr)):
-                setattr(cls, attr, self.trace(getattr(cls, attr)))
+            if callable(getattr(cls, attr)):
+                if attr in self.definitions["activities"].keys():
+                    setattr(cls, attr, self.trace(getattr(cls, attr)))
+                else:
+                    self.logger.warning(f'No definition for function {attr}')
         return cls
 
     def trace(self, func):
         """A decorator which tracks provenance info."""
+
+        if func.__name__ not in self.definitions["activities"]:
+            self.logger.warning(f'No definition for function {func.__name__}')
+            # self.add_definition()
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -125,11 +123,11 @@ class LogProv(object):
     def log_is_active(self, class_instance, activity):
         """Check if provenance option is enabled in configuration settings."""
         active = True
-        if activity not in definition["activities"].keys():
+        if activity not in self.definitions["activities"].keys():
             active = False
         if not class_instance:
             active = False
-        if "capture" not in provconfig or not provconfig["capture"]:
+        if "capture" not in self.config or not self.config["capture"]:
             active = False
         return active
 
@@ -142,11 +140,11 @@ class LogProv(object):
     def get_hash_method(self):
         """Helper function that returns hash method used."""
         try:
-            method = provconfig["HASH_TYPE"]
-        except:
+            method = self.config["HASH_TYPE"]
+        except Exception as ex:
             method = "md5"
         if method != SUPPORTED_HASH_TYPE:
-            logger.warning(f"Hash method {method} not supported")
+            self.logger.warning(f"Hash method {method} not supported")
             method = "Full path"
         return method
 
@@ -165,25 +163,25 @@ class LogProv(object):
                     hash_func.update(buffer)
                     buffer = f.read(block_size)
             file_hash = hash_func.hexdigest()
-            logger.debug(f"File entity {path} has {method} hash {file_hash}")
+            self.logger.debug(f"File entity {path} has {method} hash {file_hash}")
             return file_hash
         else:
-            logger.warning(f"File entity {path} not found")
+            self.logger.warning(f"File entity {path} not found")
             return path
 
     def get_entity_id(self, value, item):
         """Helper function that makes the id of an entity, depending on its type."""
         try:
             entity_name = item["entityName"]
-            entity_type = definition["entities"][entity_name]["type"]
+            entity_type = self.definitions["entities"][entity_name]["type"]
         except Exception as ex:
-            logger.warning(f"{repr(ex)} in {item}")
+            self.logger.warning(f"{repr(ex)} in {item}")
             entity_name = ""
             entity_type = ""
 
         if entity_type == "FileCollection":
             filename = value
-            index = definition["entities"][entity_name].get("index", "")
+            index = self.definitions["entities"][entity_name].get("index", "")
             if Path(os.path.expandvars(value)).is_dir() and index:
                 filename = Path(value) / index
             return self.get_file_hash(filename)
@@ -241,9 +239,9 @@ class LogProv(object):
         """Helper function that returns properties of an entity or member."""
         try:
             entity_name = item["entityName"]
-            entity_type = definition["entities"][entity_name]["type"]
+            entity_type = self.definitions["entities"][entity_name]["type"]
         except Exception as ex:
-            logger.warning(f"{repr(ex)} in {item}")
+            self.logger.warning(f"{repr(ex)} in {item}")
             entity_name = ""
             entity_type = ""
         value = ""
@@ -270,7 +268,7 @@ class LogProv(object):
                 try:
                     setattr(value, "entity_version", 1)
                 except AttributeError as ex:
-                    logger.warning(f"{repr(ex)} for {value}")
+                    self.logger.warning(f"{repr(ex)} for {value}")
         if value and "id" not in properties:
             properties["id"] = self.get_entity_id(value, item)
             if "File" in entity_type and properties["id"] != value:
@@ -280,8 +278,8 @@ class LogProv(object):
         if entity_name:
             properties["name"] = entity_name
             for attr in ["type", "contentType"]:
-                if attr in definition["entities"][entity_name]:
-                    properties[attr] = definition["entities"][entity_name][attr]
+                if attr in self.definitions["entities"][entity_name]:
+                    properties[attr] = self.definitions["entities"][entity_name][attr]
         if "location" in properties and properties["location"]:
             properties["location"] = os.path.expandvars(properties["location"])
         return properties
@@ -289,7 +287,7 @@ class LogProv(object):
     def log_prov_info(self, prov_dict):
         """Write a dictionary to the logger."""
         record_date = datetime.datetime.now().isoformat()
-        logger.info(f"{PROV_PREFIX}{record_date}{PROV_PREFIX}{prov_dict}")
+        self.logger.info(f"{PROV_PREFIX}{record_date}{PROV_PREFIX}{prov_dict}")
 
     def log_session(self, class_instance, start):
         """Log start of a session."""
@@ -343,13 +341,13 @@ class LogProv(object):
                 }
                 records.append(log_record)
                 self.traced_entities[var] = (new_id, item)
-                logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
+                self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
         return records
 
     def get_parameters_records(self, class_instance, activity, activity_id):
         """Get log records for parameters of the activity."""
         records = []
-        parameter_list = definition["activities"][activity]["parameters"] or []
+        parameter_list = self.definitions["activities"][activity]["parameters"] or []
         if parameter_list:
             parameters = {}
             for parameter in parameter_list:
@@ -368,7 +366,7 @@ class LogProv(object):
     def get_usage_records(self, class_instance, activity, activity_id):
         """Get log records for each usage of the activity."""
         records = []
-        usage_list = definition["activities"][activity]["usage"] or []
+        usage_list = self.definitions["activities"][activity]["usage"] or []
         for item in usage_list:
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
@@ -394,7 +392,7 @@ class LogProv(object):
 
     def log_generation(self, class_instance, activity, activity_id):
         """Log generated entities."""
-        generation_list = definition["activities"][activity]["generation"] or []
+        generation_list = self.definitions["activities"][activity]["generation"] or []
         for item in generation_list:
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
@@ -456,7 +454,7 @@ class LogProv(object):
         else:
             progenitor_list = [class_instance]
         for entity in progenitor_list:
-            props =self.get_item_properties(entity, subitem)
+            props = self.get_item_properties(entity, subitem)
             if "id" in props:
                 progen_id = props.pop("id")
                 # Record progenitor link
@@ -486,7 +484,7 @@ class LogProv(object):
                 "name": entity_name,
                 "location": file_path,
                 "hash": entity_id,
-                "hash_type": provconfig["HASH_TYPE"],
+                "hash_type": self.config["HASH_TYPE"],
             }
             self.log_prov_info(log_record)
             if activity_name:
