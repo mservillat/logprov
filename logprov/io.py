@@ -19,6 +19,7 @@ def provlist2provdoc(provlist):
     pdoc.set_default_namespace("param:")
     pdoc.add_namespace(DEFAULT_NS, DEFAULT_NS + ":")
     records = {}
+    sess_id = ""
     for provdict in provlist:
         if "session_id" in provdict:
             sess_id = str(provdict.pop("session_id"))

@@ -23,6 +23,7 @@
 #                        # location and value properties are not mutually exclusive
 #         value:         # Python variable that contains the value of the entity
 #         id:            # Python variable that contains the id of the entity
+#         namespace:
 #         has_members:
 #           list:        # Python list of members /not mandatory
 #           entityType:
@@ -163,39 +164,39 @@ activities:
               entityName: Datasets
               value: datasets
 
-    run_fit:
-        description: "Fitting reduced data sets to model"
-        parameters:
-            - name: fit_range
-              description: "Energy range where to perform the fit"
-              value: settings.fit.fit_range
-            - name: optimize_opts
-              description: "Options passed to `Fit.optimize`."
-              value: kwargs.optimize_opts
-        usage:
-            - role: datasets
-              description: "Datasets with initial model"
-              entityName: Datasets
-              value: datasets
-        generation:
-            - role: fit_object
-              description: "Object that stores fitting parameters"
-              entityName: Fit
-              value: fit
-            - role: fit_result
-              description: "Object that stores fitting results parameters"
-              entityName: FitResult
-              value: fit_result
-#           TODO this is a derived model
-            - role: fitted_model
-              description: "Parametric composed model fitted on datasets"
-              entityName: SkyModel
-              value: model
-#           TODO this is a derived dataset
-            - role: datasets_with_fitted_model
-              description: "Datasets fitted to model"
-              entityName: Datasets
-              value: datasets
+#    run_fit:
+#        description: "Fitting reduced data sets to model"
+#        parameters:
+#            - name: fit_range
+#              description: "Energy range where to perform the fit"
+#              value: settings.fit.fit_range
+#            - name: optimize_opts
+#              description: "Options passed to `Fit.optimize`."
+#              value: kwargs.optimize_opts
+#        usage:
+#            - role: datasets
+#              description: "Datasets with initial model"
+#              entityName: Datasets
+#              value: datasets
+#        generation:
+#            - role: fit_object
+#              description: "Object that stores fitting parameters"
+#              entityName: Fit
+#              value: fit
+#            - role: fit_result
+#              description: "Object that stores fitting results parameters"
+#              entityName: FitResult
+#              value: fit_result
+##           TODO this is a derived model
+#            - role: fitted_model
+#              description: "Parametric composed model fitted on datasets"
+#              entityName: SkyModel
+#              value: model
+##           TODO this is a derived dataset
+#            - role: datasets_with_fitted_model
+#              description: "Datasets fitted to model"
+#              entityName: Datasets
+#              value: datasets
 
     get_flux_points:
         description: "Calculate flux points"
@@ -225,6 +226,12 @@ entities:
     PythonObject:
         description: "A Python variable in memory"
         type: PythonObject
+    File:
+        description: "A File on the disk"
+        type: File
+    FileCollection:
+        description: "A Collection of files on the disk"
+        type: FileCollection
     DataStore:
         description: "A directory pointing to a collection of files on the disk"
         docurl: https://docs.gammapy.org/dev/api/gammapy.data.DataStore
@@ -267,9 +274,6 @@ entities:
         description: "A 2D or 3D mask as FITS file"
         type: File
         contentType: application/fits
-    File:
-        description: "A File on the disk"
-        type: File
     FITSFile:
         description: "A FITS File on the disk"
         type: File

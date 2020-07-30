@@ -88,7 +88,14 @@ class ProvCapture(object):
             self.config = logprov_config
         log_filename = self.config.get('log_filename', logprov_config['log_filename'])
         self.logger = self.get_logger(log_filename=log_filename)
-        self.definitions = definitions
+        if definitions:
+            self.definitions = definitions
+        else:
+            self.definitions = {
+                "activities": {},
+                "entities": {},
+                "agents": {},
+            }
         # global variables
         self.sessions = []
         self.traced_entities = {}
@@ -109,10 +116,7 @@ class ProvCapture(object):
         """A function decorator which decorates the methods with trace function."""
         for attr in cls.__dict__:
             if not attr.startswith('_') and callable(getattr(cls, attr)):
-                if attr in self.definitions["activities"].keys():
-                    setattr(cls, attr, self.trace(getattr(cls, attr)))
-                else:
-                    self.logger.warning(f'No definition for function {attr}')
+                setattr(cls, attr, self.trace(getattr(cls, attr)))
         return cls
 
     def trace(self, func):
@@ -120,7 +124,7 @@ class ProvCapture(object):
 
         if func.__name__ not in self.definitions["activities"]:
             self.logger.warning(f'No definition for function {func.__name__}')
-            # self.add_definition()
+            # TODO: try to create a definition automatically (may not link used/wgb entities though...)
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -162,15 +166,16 @@ class ProvCapture(object):
     def log_is_active(self, class_instance, activity):
         """Check if provenance option is enabled in configuration settings."""
         active = True
-        if activity not in self.definitions["activities"].keys():
-            active = False
+        # if activity not in self.definitions["activities"].keys():
+        #     active = False
         if not class_instance:
             active = False
         if "capture" not in self.config or not self.config["capture"]:
             active = False
         return active
 
-    def get_activity_id(self):
+    @staticmethod
+    def get_activity_id():
         # uuid example: ea5caa9f-0a76-42f5-a1a7-43752df755f0
         # uuid[-12:]: 43752df755f0
         # uuid[-6:]: f755f0
@@ -386,7 +391,9 @@ class ProvCapture(object):
     def get_parameters_records(self, class_instance, activity, activity_id):
         """Get log records for parameters of the activity."""
         records = []
-        parameter_list = self.definitions["activities"][activity]["parameters"] or []
+        parameter_list = []
+        if activity in self.definitions["activities"]:
+            parameter_list = self.definitions["activities"][activity]["parameters"] or []
         if parameter_list:
             parameters = {}
             for parameter in parameter_list:
@@ -405,7 +412,9 @@ class ProvCapture(object):
     def get_usage_records(self, class_instance, activity, activity_id):
         """Get log records for each usage of the activity."""
         records = []
-        usage_list = self.definitions["activities"][activity]["usage"] or []
+        usage_list = []
+        if activity in self.definitions["activities"]:
+            usage_list = self.definitions["activities"][activity]["usage"] or []
         for item in usage_list:
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
@@ -431,7 +440,9 @@ class ProvCapture(object):
 
     def log_generation(self, class_instance, activity, activity_id):
         """Log generated entities."""
-        generation_list = self.definitions["activities"][activity]["generation"] or []
+        generation_list = []
+        if activity in self.definitions["activities"]:
+            generation_list = self.definitions["activities"][activity]["generation"] or []
         for item in generation_list:
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
