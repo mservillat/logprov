@@ -8,22 +8,22 @@ from prov.model import ProvDocument
 
 # TODO remove
 PROV_PREFIX = "_PROV_"
-DEFAULT_NS = "id"           # "logprov"
+DEFAULT_NS = "session"
 
 __all__ = ["provlist2provdoc", "provdoc2svg", "read_prov"]
 
 
-def provlist2provdoc(provlist):
+def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
     """ Convert a list of provenance dictionaries to a provdoc W3C PROV compatible"""
     pdoc = ProvDocument()
     pdoc.set_default_namespace("param:")
-    pdoc.add_namespace(DEFAULT_NS, DEFAULT_NS + ":")
+    pdoc.add_namespace(default_ns, default_ns + ":")
     records = {}
     sess_id = ""
     for provdict in provlist:
         if "session_id" in provdict:
             sess_id = str(provdict.pop("session_id"))
-            sess_qid = DEFAULT_NS + ":" + sess_id
+            sess_qid = default_ns + ":" + sess_id
             if sess_id in records:
                 sess = records[sess_qid]
             else:
@@ -40,7 +40,7 @@ def provlist2provdoc(provlist):
             )
         # activity
         if "activity_id" in provdict:
-            act_id = DEFAULT_NS + ":" + str(provdict.pop("activity_id")).replace("-", "")
+            act_id = default_ns + ":" + "_".join([sess_id, str(provdict.pop("activity_id")).replace("-", "")])
             if act_id in records:
                 act = records[act_id]
             else:
@@ -61,7 +61,7 @@ def provlist2provdoc(provlist):
                 )
             # in session?
             # if "in_session" in provdict:
-            #     sess_qid = DEFAULT_NS + ":" + str(provdict.pop("in_session"])
+            #     sess_qid = default_ns + ":" + str(provdict.pop("in_session"])
             #     pdoc.wasInfluencedBy(
             #         act_id, sess_id
             #     )  # , other_attributes={'prov:type': "Context"})
@@ -69,7 +69,7 @@ def provlist2provdoc(provlist):
             if "agent_name" in provdict:
                 agent_id = str(provdict.pop("agent_name"))
                 if ":" not in agent_id:
-                    agent_id = DEFAULT_NS + ":" + agent_id
+                    agent_id = default_ns + ":" + agent_id
                 else:
                     new_ns = agent_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -78,13 +78,14 @@ def provlist2provdoc(provlist):
                 else:
                     agent = pdoc.agent(agent_id)
                     records[agent_id] = agent
-                #act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
+                act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
             if "parameters" in provdict:
                 params_record = provdict.pop("parameters")
                 params = {
                     k: str(params_record[k]) for k in params_record
                 }
-                par = pdoc.entity(act_id + "_parameters", other_attributes=params)
+                par_id = act_id + "_parameters"
+                par = pdoc.entity(par_id, other_attributes=params)
                 par.add_attributes({"prov:type": "Parameters"})
                 par.add_attributes({"prov:label": "WasConfiguredBy"})
                 act.used(par, attributes={"prov:type": "Setup"})
@@ -92,7 +93,7 @@ def provlist2provdoc(provlist):
             if "used_id" in provdict:
                 ent_id = str(provdict.pop("used_id"))
                 if ":" not in ent_id:
-                    ent_id = DEFAULT_NS + ":" + ent_id + "_" + sess_id
+                    ent_id = default_ns + ":" + "_".join([sess_id, ent_id])
                 else:
                     new_ns = ent_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -109,7 +110,7 @@ def provlist2provdoc(provlist):
             if "generated_id" in provdict:
                 ent_id = str(provdict.pop("generated_id"))
                 if ":" not in ent_id:
-                    ent_id = DEFAULT_NS + ":" + ent_id + "_" + sess_id
+                    ent_id = default_ns + ":" + "_".join([sess_id, ent_id])
                 else:
                     new_ns = ent_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -128,7 +129,7 @@ def provlist2provdoc(provlist):
         if "entity_id" in provdict:
             ent_id = str(provdict.pop("entity_id"))
             if ":" not in ent_id:
-                ent_id = DEFAULT_NS + ":" + ent_id + "_" + sess_id
+                ent_id = default_ns + ":" + "_".join([sess_id, ent_id])
             else:
                 new_ns = ent_id.split(":").pop(0)
                 pdoc.add_namespace(new_ns, new_ns + ":")
@@ -149,7 +150,7 @@ def provlist2provdoc(provlist):
             if "member_id" in provdict:
                 mem_id = str(provdict.pop("member_id"))
                 if ":" not in mem_id:
-                    mem_id = DEFAULT_NS + ":" + mem_id + "_" + sess_id
+                    mem_id = default_ns + ":" + "_".join([sess_id, mem_id])
                 else:
                     new_ns = mem_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -162,7 +163,7 @@ def provlist2provdoc(provlist):
             if "progenitor_id" in provdict:
                 progen_id = str(provdict.pop("progenitor_id"))
                 if ":" not in progen_id:
-                    progen_id = DEFAULT_NS + ":" + progen_id + "_" + sess_id
+                    progen_id = default_ns + ":" + "_".join([sess_id, progen_id])
                 else:
                     new_ns = progen_id.split(":").pop(0)
                     pdoc.add_namespace(new_ns, new_ns + ":")
@@ -197,8 +198,8 @@ def provdoc2svg(provdoc, filename):
         f.write(svg_content)
 
 
-def read_prov(logname="prov.log", start=None, end=None):
-    """ Read a list of provenance dictionaries from the log"""
+def read_prov(logname="prov.log", start=None, end=None, prefix=PROV_PREFIX):
+    """ Read a list of provenance dictionaries from the structured log"""
     if start:
         start_dt = datetime.datetime.fromisoformat(start)
     if end:
@@ -206,7 +207,7 @@ def read_prov(logname="prov.log", start=None, end=None):
     prov_list = []
     with open(logname, "r") as f:
         for l in f.readlines():
-            ll = l.split(PROV_PREFIX)
+            ll = l.split(prefix)
             if len(ll) >= 2:
                 prov_str = ll.pop()
                 prov_dt = datetime.datetime.fromisoformat(ll.pop())
