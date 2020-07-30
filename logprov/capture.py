@@ -419,14 +419,16 @@ class ProvCapture(object):
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
                 entity_id = props.pop("id")
-                # Record usage
+                if "namespace" in props:
+                    entity_id = props.pop("namespace") + ":" + entity_id
+                # Usage record
                 log_record = {
                     "activity_id": activity_id,
                     "used_id": entity_id,
                 }
                 if "role" in item:
                     log_record.update({"used_role": item["role"]})
-                # Record entity
+                # Entity record
                 log_record_ent = {
                     "entity_id": entity_id,
                 }
@@ -447,7 +449,9 @@ class ProvCapture(object):
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
                 entity_id = props.pop("id")
-                # Record generation
+                if "namespace" in props:
+                    entity_id = props.pop("namespace") + ":" + entity_id
+                # Generation record
                 if "value" in item:
                     self.traced_entities[item["value"]] = (entity_id, item)
                 log_record = {
@@ -456,7 +460,7 @@ class ProvCapture(object):
                 }
                 if "role" in item:
                     log_record.update({"generated_role": item["role"]})
-                # Record entity
+                # Entity record
                 log_record_ent = {
                     "entity_id": entity_id,
                 }
