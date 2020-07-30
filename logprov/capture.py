@@ -14,12 +14,6 @@ from pathlib import Path
 import psutil
 import yaml
 import inspect
-# gammapy specific
-from gammapy.scripts.info import (
-    get_info_dependencies,
-    get_info_envvar,
-    get_info_version,
-)
 
 __all__ = ["ProvCapture"]
 
@@ -39,7 +33,7 @@ _interesting_env_vars = [
 ]
 
 PROV_PREFIX = "_PROV_"
-SUPPORTED_HASH_TYPE = "md5"
+SUPPORTED_HASH_TYPE = ["sha1", "sha224", "sha256", "sha384", "sha512", "md5"]  # included in hashlib
 
 
 # TODO:
@@ -48,23 +42,68 @@ SUPPORTED_HASH_TYPE = "md5"
 #  config: logfile name, hash type, prefix...
 # should we import an instance of a class? setting up .config= and .definition= + global variables
 
+logging_config = {
+    'version': 1,
+    'formatters': {
+        'simple': {
+            'format': '%(levelname)s %(name)s %(message)s',
+            'datefmt': '%Y-%m-%dT%H:%M:%S',
+        },
+    },
+    'handlers': {
+        'provHandler': {
+            'class': 'logging.handlers.WatchedFileHandler',
+            'level': 'INFO',
+            'formatter': 'simple',
+            'filename': 'prov.log',
+        },
+    },
+    'loggers': {
+        'provLogger': {
+            'level': 'INFO',
+            'handlers': ['provHandler'],
+            'propagate': False,
+        },
+    },
+    'disable_existing_loggers': False,
+}
+
+# To be provided at class init, here are the default values:
+logprov_config = {
+    'capture': True,
+    'hash_type': 'sha1',
+    'log_filename': 'prov.log',
+    'system_dict': {},
+    'env_vars': {},
+    'logging': logging_config,
+}
+
 
 class ProvCapture(object):
 
-    def __init__(self, config=None, definitions=None):
-        self.config = config
+    def __init__(self, definitions=None, config=None):
+        if config:
+            self.config = config
+        else:
+            self.config = logprov_config
+        log_filename = self.config.get('log_filename', logprov_config['log_filename'])
+        self.logger = self.get_logger(log_filename=log_filename)
         self.definitions = definitions
         # global variables
         self.sessions = []
         self.traced_entities = {}
+
+    def get_logger(self, log_filename=None):
         # initialize logger
+        if log_filename:
+            self.config['logging']['handlers']['provHandler']['filename'] = log_filename
         try:
-            logging.config.dictConfig(self.config)
+            logging.config.dictConfig(self.config['logging'])
         except Exception as ex:
             print(str(ex))
             print('Failed to set up the logger.')
             logging.basicConfig(level="INFO")
-        self.logger = logging.getLogger('provLogger')
+        return logging.getLogger('provLogger')
 
     def wrap_methods(self, cls):
         """A function decorator which decorates the methods with trace function."""
@@ -140,10 +179,10 @@ class ProvCapture(object):
     def get_hash_method(self):
         """Helper function that returns hash method used."""
         try:
-            method = self.config["HASH_TYPE"]
-        except Exception as ex:
-            method = "md5"
-        if method != SUPPORTED_HASH_TYPE:
+            method = self.config["hash_type"].lower()
+        except KeyError as ex:
+            method = "sha1"
+        if method not in SUPPORTED_HASH_TYPE:
             self.logger.warning(f"Hash method {method} not supported")
             method = "Full path"
         return method
@@ -153,7 +192,7 @@ class ProvCapture(object):
         method = self.get_hash_method()
         full_path = Path(os.path.expandvars(path))
         if method == "Full path":
-            return full_path
+            return str(full_path)
         if full_path.is_file():
             block_size = 65536
             hash_func = getattr(hashlib, method)()
@@ -174,8 +213,8 @@ class ProvCapture(object):
         try:
             entity_name = item["entityName"]
             entity_type = self.definitions["entities"][entity_name]["type"]
-        except Exception as ex:
-            self.logger.warning(f"{repr(ex)} in {item}")
+        except KeyError as ex:
+            # self.logger.warning(f"{repr(ex)} in {item}")
             entity_name = ""
             entity_type = ""
 
@@ -194,7 +233,7 @@ class ProvCapture(object):
                 entity_id += getattr(value, "entity_version")
             return entity_id
         except TypeError:
-            # rk: two different objects may use the same memory address
+            # two different objects may use the same memory address
             # so use hash(entity_name) to avoid issues
             return abs(id(value) + hash(entity_name))
 
@@ -471,7 +510,7 @@ class ProvCapture(object):
                 self.log_prov_info(log_record_ent)
                 self.log_prov_info(log_record)
 
-    def log_file_generation(self, file_path, entity_name="", used=[], role="", activity_name=""):
+    def log_file_generation(self, file_path, entity_name="", used=None, role="", activity_name=""):
         # get file properties
         if os.path.isfile(file_path):
             item = dict(
@@ -484,7 +523,7 @@ class ProvCapture(object):
                 "name": entity_name,
                 "location": file_path,
                 "hash": entity_id,
-                "hash_type": self.config["HASH_TYPE"],
+                "hash_type": self.config["hash_type"],
             }
             self.log_prov_info(log_record)
             if activity_name:
@@ -494,30 +533,32 @@ class ProvCapture(object):
                     "name": activity_name,
                 }
                 self.log_prov_info(log_record)
-                for used_entity in used:
-                    used_id = self.get_entity_id(used_entity, {})
+                if used:
+                    for used_entity in used:
+                        used_id = self.get_entity_id(used_entity, {})
+                        log_record = {
+                            "activity_id": activity_id,
+                            "used_id": used_id,
+                        }
+                        self.log_prov_info(log_record)
                     log_record = {
                         "activity_id": activity_id,
-                        "used_id": used_id,
+                        "generated_id": entity_id,
                     }
-                    self.log_prov_info(log_record)
-                log_record = {
-                    "activity_id": activity_id,
-                    "generated_id": entity_id,
-                }
                 if role:
                     log_record.update({"generated_role": role})
                 self.log_prov_info(log_record)
             else:
-                for used_entity in used:
-                    used_id = self.get_entity_id(used_entity, {})
-                    log_record = {
-                        "entity_id": entity_id,
-                        "progenitor_id": used_id,
-                    }
-                    self.log_prov_info(log_record)
+                if used:
+                    for used_entity in used:
+                        used_id = self.get_entity_id(used_entity, {})
+                        log_record = {
+                            "entity_id": entity_id,
+                            "progenitor_id": used_id,
+                        }
+                        self.log_prov_info(log_record)
 
-    def get_system_provenance(self, additional_dict=None):
+    def get_system_provenance(self):
         """Return JSON string containing provenance for all things that are fixed during the runtime."""
         bits, linkage = platform.architecture()
         system_dict = dict(
@@ -546,17 +587,20 @@ class ProvCapture(object):
             start_time_utc=datetime.datetime.now().isoformat(),
         )
         # Include additional dict provided
-        if additional_dict:
-            system_dict.update(additional_dict)
+        if 'system_dict' in self.config and self.config['system_dict']:
+            system_dict.update(self.config['system_dict'])
         return system_dict
 
     def get_env_vars(self):
         """Return env vars defined at the main scope of the script."""
-
-        envvars = {}
+        env_vars = {}
         for var in _interesting_env_vars:
-            envvars[var] = os.getenv(var, None)
-        return envvars
+            env_vars[var] = os.getenv(var, None)
+        # Include additional vars requested
+        if 'env_vars' in self.config and self.config['env_vars']:
+            for var in self.config['env_vars']:
+                env_vars[var] = os.getenv(var, None)
+        return env_vars
 
     def _sample_cpu_and_memory(self):
         # times = np.asarray(psutil.cpu_times(percpu=True))
