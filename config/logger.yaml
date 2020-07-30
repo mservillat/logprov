@@ -1,20 +1,22 @@
-version: 1
-formatters:
-    simple:
-        format: '%(levelname)s %(name)s %(message)s'
-        # '%(asctime)s.%(msecs)03d%(message)s'
-        datefmt: '%Y-%m-%dT%H:%M:%S'
-handlers:
-    provHandler:
-        class: logging.handlers.WatchedFileHandler
-        level: INFO
-        formatter: simple
-        filename: prov.log
-loggers:
-    provLogger:
-        level: INFO
-        handlers: [provHandler]
-        propagate: False
-disable_existing_loggers: False
-HASH_TYPE: md5
+logging:
+    version: 1
+    formatters:
+        simple:
+            format: '%(levelname)s %(name)s %(message)s'
+            # '%(asctime)s.%(msecs)03d%(message)s'
+            datefmt: '%Y-%m-%dT%H:%M:%S'
+    handlers:
+        provHandler:
+            class: logging.handlers.WatchedFileHandler
+            level: INFO
+            formatter: simple
+            filename: prov.log
+    loggers:
+        provLogger:
+            level: INFO
+            handlers: [provHandler]
+            propagate: False
+    disable_existing_loggers: False
 capture: True
+hash_type: sha1
+log_filename: 'prov.log'
