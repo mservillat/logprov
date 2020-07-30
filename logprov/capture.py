@@ -105,10 +105,10 @@ class ProvCapture(object):
             logging.basicConfig(level="INFO")
         return logging.getLogger('provLogger')
 
-    def wrap_methods(self, cls):
+    def trace_methods(self, cls):
         """A function decorator which decorates the methods with trace function."""
         for attr in cls.__dict__:
-            if callable(getattr(cls, attr)):
+            if not attr.startswith('_') and callable(getattr(cls, attr)):
                 if attr in self.definitions["activities"].keys():
                     setattr(cls, attr, self.trace(getattr(cls, attr)))
                 else:
