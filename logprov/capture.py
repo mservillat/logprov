@@ -1,5 +1,5 @@
 """
-Provenance capture functions (from ctapipe initially)
+Provenance capture functions (from ctapipe and gammapy initially)
 """
 import datetime
 import hashlib
@@ -35,18 +35,11 @@ _interesting_env_vars = [
 PROV_PREFIX = "_PROV_"
 SUPPORTED_HASH_TYPE = ["sha1", "sha224", "sha256", "sha384", "sha512", "md5"]  # included in hashlib
 
-
-# TODO:
-# setup logprov with:
-#  definition.yaml
-#  config: logfile name, hash type, prefix...
-# should we import an instance of a class? setting up .config= and .definition= + global variables
-
-logging_config = {
+logging_default_config = {
     'version': 1,
     'formatters': {
         'simple': {
-            'format': '%(levelname)s %(name)s %(message)s',
+            'format': '%(levelname)s %(message)s',
             'datefmt': '%Y-%m-%dT%H:%M:%S',
         },
     },
@@ -69,15 +62,39 @@ logging_config = {
 }
 
 # To be provided at class init, here are the default values:
-logprov_config = {
+logprov_default_config = {
     'capture': True,
     'hash_type': 'sha1',
     'log_filename': 'prov.log',
     'system_dict': {},
     'env_vars': {},
-    'logging': logging_config,
 }
 
+definitions_default = {
+    "activity_descriptions": {},
+    "entity_descriptions": {},
+    "agents": {},
+}
+
+
+# Read config and definitions from files (yaml)
+
+
+def read_config(filename):
+    """Read yaml config file"""
+    filename_path = Path(filename)
+    prov_config = yaml.safe_load(filename_path.read_text())
+    return prov_config
+
+
+def read_definitions(filename):
+    """Read yaml definition file"""
+    filename_path = Path(filename)
+    prov_definitions = yaml.safe_load(filename_path.read_text())
+    return prov_definitions
+
+
+# Capture class
 
 class ProvCapture(object):
 
@@ -85,32 +102,57 @@ class ProvCapture(object):
         if config:
             self.config = config
         else:
-            self.config = logprov_config
-        log_filename = self.config.get('log_filename', logprov_config['log_filename'])
-        self.logger = self.get_logger(log_filename=log_filename)
+            self.config = logprov_default_config
+        # logging dict may be given in the config, otherwise, used default
+        if "logging" in self.config:
+            self.logging_dict = self.config["logging"]
+        else:
+            if "log_filename" in self.config:
+                logging_default_config['handlers']['provHandler']['filename'] = self.config["log_filename"]
+            self.logging_dict = logging_default_config
+        # Check config and set to default if undefined
+        for key in logprov_default_config:
+            if key not in self.config:
+                self.config[key] = logprov_default_config[key]
+        # Set logger
+        self.logger = self.get_logger()
         if definitions:
             self.definitions = definitions
         else:
-            self.definitions = {
-                "activities": {},
-                "entities": {},
-                "agents": {},
-            }
+            self.definitions = definitions_default
         # global variables
         self.sessions = []
         self.traced_entities = {}
 
-    def get_logger(self, log_filename=None):
-        # initialize logger
-        if log_filename:
-            self.config['logging']['handlers']['provHandler']['filename'] = log_filename
+    # Logger configuration
+
+    def get_logger(self):
+        """Initialize logger."""
         try:
-            logging.config.dictConfig(self.config['logging'])
+            logging.config.dictConfig(self.logging_dict)
         except Exception as ex:
             print(str(ex))
             print('Failed to set up the logger.')
             logging.basicConfig(level="INFO")
         return logging.getLogger('provLogger')
+
+    def set_log_filename(self, log_filename):
+        """Set log filename in config and in logging dict."""
+        self.config['log_filename'] = log_filename
+        self.logger.handlers[0].baseFilename = log_filename
+
+    def log_is_active(self, class_instance, activity):
+        """Check if provenance option is enabled in configuration settings."""
+        active = True
+        # if activity not in self.definitions["activities"].keys():
+        #     active = False
+        if not class_instance:
+            active = False
+        if "capture" not in self.config or not self.config["capture"]:
+            active = False
+        return active
+
+    # Decorators
 
     def trace_methods(self, cls):
         """A function decorator which decorates the methods with trace function."""
@@ -150,29 +192,20 @@ class ProvCapture(object):
                 return result
             # provenance logging only if activity ends properly
             session_id = self.log_session(class_instance, start)
-            for log_record in derivation_records:
-                self.log_prov_info(log_record)
+            for prov_record in derivation_records:
+                self.log_prov_record(prov_record)
             self.log_start_activity(activity, activity_id, session_id, start)
-            for log_record in parameter_records:
-                self.log_prov_info(log_record)
-            for log_record in usage_records:
-                self.log_prov_info(log_record)
+            for prov_record in parameter_records:
+                self.log_prov_record(prov_record)
+            for prov_record in usage_records:
+                self.log_prov_record(prov_record)
             self.log_generation(class_instance, activity, activity_id)
             self.log_finish_activity(activity_id, end)
             return result
 
         return wrapper
 
-    def log_is_active(self, class_instance, activity):
-        """Check if provenance option is enabled in configuration settings."""
-        active = True
-        # if activity not in self.definitions["activities"].keys():
-        #     active = False
-        if not class_instance:
-            active = False
-        if "capture" not in self.config or not self.config["capture"]:
-            active = False
-        return active
+    # ID management
 
     @staticmethod
     def get_activity_id():
@@ -328,7 +361,9 @@ class ProvCapture(object):
             properties["location"] = os.path.expandvars(properties["location"])
         return properties
 
-    def log_prov_info(self, prov_dict):
+    # Log records
+
+    def log_prov_record(self, prov_dict):
         """Write a dictionary to the logger."""
         record_date = datetime.datetime.now().isoformat()
         self.logger.info(f"{PROV_PREFIX}{record_date}{PROV_PREFIX}{prov_dict}")
@@ -342,34 +377,34 @@ class ProvCapture(object):
         if session_id not in self.sessions:
             self.sessions.append(session_id)
             system = self.get_system_provenance()
-            log_record = {
+            prov_record = {
                 "session_id": session_id,
                 "name": session_name,
                 "startTime": start,
                 "configFile": class_instance.config.filename,
                 "system": system,
             }
-            self.log_prov_info(log_record)
+            self.log_prov_record(prov_record)
         return session_id
 
     def log_start_activity(self, activity, activity_id, session_id, start):
         """Log start of an activity."""
-        log_record = {
+        prov_record = {
             "activity_id": activity_id,
             "name": activity,
             "startTime": start,
             "in_session": session_id,
             "agent_name": os.getlogin(),
         }
-        self.log_prov_info(log_record)
+        self.log_prov_record(prov_record)
 
     def log_finish_activity(self, activity_id, end):
         """Log end of an activity."""
-        log_record = {
+        prov_record = {
             "activity_id": activity_id,
             "endTime": end
         }
-        self.log_prov_info(log_record)
+        self.log_prov_record(prov_record)
 
     def get_derivation_records(self, class_instance, activity):
         """Get log records for potentially derived entity."""
@@ -379,11 +414,11 @@ class ProvCapture(object):
             value = self.get_nested_value(class_instance, var)
             new_id = self.get_entity_id(value, item)
             if new_id != entity_id:
-                log_record = {
+                prov_record = {
                     "entity_id": new_id,
                     "progenitor_id": entity_id
                 }
-                records.append(log_record)
+                records.append(prov_record)
                 self.traced_entities[var] = (new_id, item)
                 self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
         return records
@@ -402,11 +437,11 @@ class ProvCapture(object):
                     if parameter_value:
                         parameters[parameter["name"]] = parameter_value
             if parameters:
-                log_record = {
+                prov_record = {
                     "activity_id": activity_id,
                     "parameters": parameters
                 }
-                records.append(log_record)
+                records.append(prov_record)
         return records
 
     def get_usage_records(self, class_instance, activity, activity_id):
@@ -422,22 +457,22 @@ class ProvCapture(object):
                 if "namespace" in props:
                     entity_id = props.pop("namespace") + ":" + entity_id
                 # Usage record
-                log_record = {
+                prov_record = {
                     "activity_id": activity_id,
                     "used_id": entity_id,
                 }
                 if "role" in item:
-                    log_record.update({"used_role": item["role"]})
+                    prov_record.update({"used_role": item["role"]})
                 # Entity record
-                log_record_ent = {
+                prov_record_ent = {
                     "entity_id": entity_id,
                 }
                 if "entityName" in item:
-                    log_record_ent.update({"name": item["entityName"]})
+                    prov_record_ent.update({"name": item["entityName"]})
                 for prop in props:
-                    log_record_ent.update({prop: props[prop]})
-                records.append(log_record_ent)
-                records.append(log_record)
+                    prov_record_ent.update({prop: props[prop]})
+                records.append(prov_record_ent)
+                records.append(prov_record)
         return records
 
     def log_generation(self, class_instance, activity, activity_id):
@@ -454,22 +489,22 @@ class ProvCapture(object):
                 # Generation record
                 if "value" in item:
                     self.traced_entities[item["value"]] = (entity_id, item)
-                log_record = {
+                prov_record = {
                     "activity_id": activity_id,
                     "generated_id": entity_id,
                 }
                 if "role" in item:
-                    log_record.update({"generated_role": item["role"]})
+                    prov_record.update({"generated_role": item["role"]})
                 # Entity record
-                log_record_ent = {
+                prov_record_ent = {
                     "entity_id": entity_id,
                 }
                 if "entityName" in item:
-                    log_record_ent.update({"name": item["entityName"]})
+                    prov_record_ent.update({"name": item["entityName"]})
                 for prop in props:
-                    log_record_ent.update({prop: props[prop]})
-                self.log_prov_info(log_record_ent)
-                self.log_prov_info(log_record)
+                    prov_record_ent.update({prop: props[prop]})
+                self.log_prov_record(prov_record_ent)
+                self.log_prov_record(prov_record)
                 if "has_members" in item:
                     self.log_members(entity_id, item["has_members"], class_instance)
                 if "has_progenitors" in item:
@@ -486,20 +521,20 @@ class ProvCapture(object):
             if "id" in props:
                 mem_id = props.pop("id")
                 # Record membership
-                log_record = {
+                prov_record = {
                     "entity_id": entity_id,
                     "member_id": mem_id,
                 }
                 # Record entity
-                log_record_ent = {
+                prov_record_ent = {
                     "entity_id": mem_id,
                 }
                 if "entityName" in subitem:
-                    log_record_ent.update({"name": subitem["entityName"]})
+                    prov_record_ent.update({"name": subitem["entityName"]})
                 for prop in props:
-                    log_record_ent.update({prop: props[prop]})
-                self.log_prov_info(log_record_ent)
-                self.log_prov_info(log_record)
+                    prov_record_ent.update({prop: props[prop]})
+                self.log_prov_record(prov_record_ent)
+                self.log_prov_record(prov_record)
 
     def log_progenitors(self, entity_id, subitem, class_instance):
         """Log progenitors of and entity."""
@@ -512,18 +547,18 @@ class ProvCapture(object):
             if "id" in props:
                 progen_id = props.pop("id")
                 # Record progenitor link
-                log_record = {
+                prov_record = {
                     "entity_id": entity_id,
                     "progenitor_id": progen_id,
                 }
                 # Record entity
-                log_record_ent = {
+                prov_record_ent = {
                     "entity_id": progen_id,
                 }
                 for prop in props:
-                    log_record_ent.update({prop: props[prop]})
-                self.log_prov_info(log_record_ent)
-                self.log_prov_info(log_record)
+                    prov_record_ent.update({prop: props[prop]})
+                self.log_prov_record(prov_record_ent)
+                self.log_prov_record(prov_record)
 
     def log_file_generation(self, file_path, entity_name="", used=None, role="", activity_name=""):
         # get file properties
@@ -533,45 +568,45 @@ class ProvCapture(object):
                 entityName=entity_name,
             )
             entity_id = self.get_entity_id(file_path, item)
-            log_record = {
+            prov_record = {
                 "entity_id": entity_id,
                 "name": entity_name,
                 "location": file_path,
                 "hash": entity_id,
                 "hash_type": self.config["hash_type"],
             }
-            self.log_prov_info(log_record)
+            self.log_prov_record(prov_record)
             if activity_name:
                 activity_id = self.get_activity_id()
-                log_record = {
+                prov_record = {
                     "activity_id": activity_id,
                     "name": activity_name,
                 }
-                self.log_prov_info(log_record)
+                self.log_prov_record(prov_record)
                 if used:
                     for used_entity in used:
                         used_id = self.get_entity_id(used_entity, {})
-                        log_record = {
+                        prov_record = {
                             "activity_id": activity_id,
                             "used_id": used_id,
                         }
-                        self.log_prov_info(log_record)
-                    log_record = {
+                        self.log_prov_record(prov_record)
+                    prov_record = {
                         "activity_id": activity_id,
                         "generated_id": entity_id,
                     }
                 if role:
-                    log_record.update({"generated_role": role})
-                self.log_prov_info(log_record)
+                    prov_record.update({"generated_role": role})
+                self.log_prov_record(prov_record)
             else:
                 if used:
                     for used_entity in used:
                         used_id = self.get_entity_id(used_entity, {})
-                        log_record = {
+                        prov_record = {
                             "entity_id": entity_id,
                             "progenitor_id": used_id,
                         }
-                        self.log_prov_info(log_record)
+                        self.log_prov_record(prov_record)
 
     def get_system_provenance(self):
         """Return JSON string containing provenance for all things that are fixed during the runtime."""
