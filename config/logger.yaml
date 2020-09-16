@@ -1,4 +1,4 @@
-logging:
+logging_old:
     version: 1
     formatters:
         simple:
