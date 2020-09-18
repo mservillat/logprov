@@ -249,6 +249,7 @@ class ProvCapture(object):
 
     def get_entity_id(self, value, item_description):
         """Helper function that makes the id of an entity, depending on its type."""
+        # Get entity description name and type
         try:
             ed_name = item_description["entity_description"]
             ed_type = self.definitions["entity_description"][ed_name]["type"]
@@ -256,29 +257,37 @@ class ProvCapture(object):
             # self.logger.warning(f"{repr(ex)} in {item_description}")
             ed_name = ""
             ed_type = ""
-
+        # TODO: add list of ed_name + function to get id
+        # If FileCollection: id = index file hash (value is the dir name)
         if ed_type == "FileCollection":
             filename = value
             index = self.definitions["entity_description"][ed_name].get("index", "")
             if Path(os.path.expandvars(value)).is_dir() and index:
                 filename = Path(value) / index
             return self.get_file_hash(filename)
+        # If FileCollection: id = file hash  (value is the file name)
         if ed_type == "File":
             return self.get_file_hash(value)
-        # entity is not a File (must be a PythonObject)
+        # entity is not a File (so must be a PythonObject)
         try:
             entity_id = abs(hash(value) + hash(str(value)))
-            if "value" in item_description and item_description["value"] in self.traced_variables:
-                entity_id += self.traced_variables[item_description["value"]]["modifier"]
+            # Add modifier for traced variables
+            if "value" in item_description:
+                if item_description["value"] in self.traced_variables:
+                    entity_id += self.traced_variables[item_description["value"]]["modifier"]
+            # Add entity_version if present (NOT USED - TO REMOVE)
             if hasattr(value, "entity_version"):
                 entity_id += getattr(value, "entity_version")
             return entity_id
         except TypeError:
-            # two different objects may use the same memory address
-            # so use hash(ed_name) to avoid issues
+            # value may not have a hash()... then use id()
+            # however, two different objects may use the same memory address
+            # so add hash(ed_name) to avoid issues
             entity_id = abs(id(value) + hash(ed_name))
-            if "value" in item_description and item_description["value"] in self.traced_variables:
-                entity_id += self.traced_variables[item_description["value"]]["modifier"]
+            # Add modifier for traced variables
+            if "value" in item_description:
+                if item_description["value"] in self.traced_variables:
+                    entity_id += self.traced_variables[item_description["value"]]["modifier"]
             return entity_id
 
     def get_nested_value(self, nested, branch):
