@@ -15,7 +15,7 @@ import psutil
 import yaml
 import inspect
 
-__all__ = ["ProvCapture"]
+__all__ = ["read_config", "read_definitions", "ProvCapture"]
 
 _interesting_env_vars = [
     "CONDA_DEFAULT_ENV",
@@ -267,13 +267,18 @@ class ProvCapture(object):
         # entity is not a File (must be a PythonObject)
         try:
             entity_id = abs(hash(value) + hash(str(value)))
+            if "value" in item and item["value"] in self.traced_entities:
+                entity_id += self.traced_entities[item["value"]]["modifier"]
             if hasattr(value, "entity_version"):
                 entity_id += getattr(value, "entity_version")
             return entity_id
         except TypeError:
             # two different objects may use the same memory address
             # so use hash(entity_name) to avoid issues
-            return abs(id(value) + hash(entity_name))
+            entity_id = abs(id(value) + hash(entity_name))
+            if "value" in item and item["value"] in self.traced_entities:
+                entity_id += self.traced_entities[item["value"]]["modifier"]
+            return entity_id
 
     def get_nested_value(self, nested, branch):
         """Helper function that gets a specific value in a nested dictionary or class."""
@@ -382,7 +387,7 @@ class ProvCapture(object):
                 "session_id": session_id,
                 "name": session_name,
                 "startTime": start,
-                "configFile": class_instance.config.filename,
+                #"configFile": class_instance.config.filename,
                 "system": system,
             }
             self.log_prov_record(prov_record)
@@ -390,6 +395,7 @@ class ProvCapture(object):
 
     def log_start_activity(self, activity, activity_id, session_id, start):
         """Log start of an activity."""
+        # TODO: add relation to agent from session
         prov_record = {
             "activity_id": activity_id,
             "name": activity,
@@ -398,6 +404,7 @@ class ProvCapture(object):
             "agent_name": os.getlogin(),
         }
         self.log_prov_record(prov_record)
+        return prov_record
 
     def log_finish_activity(self, activity_id, end):
         """Log end of an activity."""
@@ -406,21 +413,37 @@ class ProvCapture(object):
             "endTime": end
         }
         self.log_prov_record(prov_record)
+        return prov_record
 
     def get_derivation_records(self, class_instance, activity):
         """Get log records for potentially derived entity."""
         records = []
-        for var, pair in self.traced_entities.items():
-            entity_id, item = pair
+        for var, te_dict in self.traced_entities.items():
+            entity_id = te_dict["last_id"]
             value = self.get_nested_value(class_instance, var)
-            new_id = self.get_entity_id(value, item)
+            new_id = self.get_entity_id(value, te_dict["item"])
             if new_id != entity_id:
+                # Entity record
+                prov_record_ent = {
+                    "entity_id": new_id,
+                }
+                if "entityName" in te_dict["item"]:
+                    prov_record_ent.update({"name": te_dict["item"]["entityName"]})
+                if "type" in te_dict["item"]:
+                    prov_record_ent.update({"type": te_dict["item"]["type"]})
+                if "value" in te_dict["item"]:
+                    prov_record_ent.update({"variable_name": te_dict["item"]["value"]})
+                records.append(prov_record_ent)
+                # Derivation record
                 prov_record = {
                     "entity_id": new_id,
-                    "progenitor_id": entity_id
+                    "progenitor_id": entity_id,
+                    "generated_time": datetime.datetime.now().isoformat(),
                 }
                 records.append(prov_record)
-                self.traced_entities[var] = (new_id, item)
+                te_dict["last_id"] = new_id
+                te_dict["previous_ids"].append(entity_id)
+                self.traced_entities[var] = te_dict
                 self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
         return records
 
@@ -435,8 +458,7 @@ class ProvCapture(object):
             for parameter in parameter_list:
                 if "name" in parameter and "value" in parameter:
                     parameter_value = self.get_nested_value(class_instance, parameter["value"])
-                    if parameter_value:
-                        parameters[parameter["name"]] = parameter_value
+                    parameters[parameter["name"]] = parameter_value
             if parameters:
                 prov_record = {
                     "activity_id": activity_id,
@@ -471,6 +493,8 @@ class ProvCapture(object):
                 }
                 if "entityName" in item:
                     prov_record_ent.update({"name": item["entityName"]})
+                if "value" in item:
+                    prov_record_ent.update({"variable_name": item["value"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 records.append(prov_record_ent)
@@ -486,11 +510,23 @@ class ProvCapture(object):
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
                 entity_id = props.pop("id")
+                # Keep new entity as traced
+                if "value" in item:
+                    if item["value"] in self.traced_entities:
+                        modifier = self.traced_entities[item["value"]]["modifier"]
+                        previous_ids = self.traced_entities[item["value"]]["previous_ids"]
+                        while entity_id in self.traced_entities[item["value"]]["previous_ids"]:
+                            # id has already been taken by this variable... should be different now !
+                            self.logger.warning(f'id has already been taken by this variable: {item["value"]} {entity_id}')
+                            modifier += 1
+                            entity_id += 1
+                    else:
+                        modifier = 0
+                        previous_ids = []
+                    self.traced_entities[item["value"]] = {"last_id": entity_id, "previous_ids": previous_ids, "item": item, "modifier": modifier}
                 if "namespace" in props:
                     entity_id = props.pop("namespace") + ":" + entity_id
                 # Generation record
-                if "value" in item:
-                    self.traced_entities[item["value"]] = (entity_id, item)
                 prov_record = {
                     "activity_id": activity_id,
                     "generated_id": entity_id,
@@ -503,6 +539,8 @@ class ProvCapture(object):
                 }
                 if "entityName" in item:
                     prov_record_ent.update({"name": item["entityName"]})
+                if "value" in item:
+                    prov_record_ent.update({"variable_name": item["value"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 self.log_prov_record(prov_record_ent)

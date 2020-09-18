@@ -6,11 +6,12 @@ import datetime
 import yaml
 from prov.model import ProvDocument
 
-# TODO remove
 PROV_PREFIX = "_PROV_"
 DEFAULT_NS = "session"
 
 __all__ = ["provlist2provdoc", "provdoc2svg", "read_prov"]
+
+# TODO: prov with internal or external ids (no ns or ns+session)
 
 
 def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
@@ -34,7 +35,7 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                     "prov:label": provdict.pop("name"),
                     "prov:type": "ExecutionSession",
                     "prov:generatedAtTime": provdict.pop("startTime"),
-                    'configFile': provdict.pop('configFile'),
+                    #'configFile': provdict.pop('configFile'),
                     'system': str(provdict.pop('system'))[:50],
                 }
             )
@@ -84,11 +85,16 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 params = {
                     k: str(params_record[k]) for k in params_record
                 }
-                par_id = act_id + "_parameters"
-                par = pdoc.entity(par_id, other_attributes=params)
-                par.add_attributes({"prov:type": "Parameters"})
-                par.add_attributes({"prov:label": "WasConfiguredBy"})
-                act.used(par, attributes={"prov:type": "Setup"})
+                # par_id = act_id + "_parameters"
+                # par = pdoc.entity(par_id, other_attributes=params)
+                # par.add_attributes({"prov:type": "Parameters"})
+                # par.add_attributes({"prov:label": "WasConfiguredBy"})
+                # act.used(par, attributes={"prov:type": "Setup"})
+                for name, value in params.items():
+                    par = pdoc.entity(act_id + "_" + name)
+                    par.add_attributes({"prov:label": name + " = " + str(value)})
+                    par.add_attributes({"prov:value": str(value)})
+                    act.used(par, attributes={"prov:type": "Setup"})
             # usage
             if "used_id" in provdict:
                 ent_id = str(provdict.pop("used_id"))
@@ -146,6 +152,8 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 ent.add_attributes({"prov:value": str(provdict.pop("value"))})
             if "location" in provdict:
                 ent.add_attributes({"prov:location": str(provdict.pop("location"))})
+            if "generated_time" in provdict:
+                ent.add_attributes({"prov:generatedAtTime": str(provdict.pop("generated_time"))})
             # member
             if "member_id" in provdict:
                 mem_id = str(provdict.pop("member_id"))
