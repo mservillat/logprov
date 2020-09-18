@@ -379,19 +379,21 @@ class ProvCapture(object):
     def log_session(self, class_instance, start):
         """Log start of a session."""
         session_id = abs(hash(class_instance))
-        module_name = class_instance.__class__.__module__
-        class_name = class_instance.__class__.__name__
-        session_name = f"{module_name}.{class_name}"
         if session_id not in self.sessions:
+            module_name = class_instance.__class__.__module__
+            class_name = class_instance.__class__.__name__
+            session_name = f"{module_name}.{class_name}"
             self.sessions.append(session_id)
             system = self.get_system_provenance()
             # TODO: add agent with os.getlogin() + relation to session
             prov_record = {
                 "session_id": session_id,
-                "name": session_name,
+                "module": module_name,
+                "class": class_name,
                 "startTime": start,
                 #"configFile": class_instance.config.filename,
                 "system": system,
+                "definitions": self.definitions,
             }
             self.log_prov_record(prov_record)
         return session_id

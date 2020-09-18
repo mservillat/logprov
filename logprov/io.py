@@ -32,11 +32,14 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 records[sess_qid] = sess
             sess.add_attributes(
                 {
-                    "prov:label": provdict.pop("name"),
-                    "prov:type": "ExecutionSession",
+                    "prov:label": "LogProvSession",
+                    "prov:type": "LogProvSession",
                     "prov:generatedAtTime": provdict.pop("startTime"),
                     #'configFile': provdict.pop('configFile'),
+                    'module': str(provdict.pop('module')),
+                    'class': str(provdict.pop('class')),
                     'system': str(provdict.pop('system'))[:50],
+                    'definitions': str(provdict.pop('definitions'))[:50],
                 }
             )
         # activity
