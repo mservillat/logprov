@@ -290,18 +290,20 @@ class ProvCapture(object):
                     entity_id += self.traced_variables[item_description["value"]]["modifier"]
             return entity_id
 
-    def get_nested_value(self, nested, branch):
+    def get_nested_value(self, object_or_dict, branch):
         """Helper function that gets a specific value in a nested dictionary or class."""
-        list_branch = branch.split(".")
-        leaf = list_branch.pop(0)
-        # return value of leaf
-        if not nested:
+        branch_list = branch.split(".")
+        leaf = branch_list.pop(0)
+        if not object_or_dict:
+            # Try to find leaf in globals (no object_or_dict to explore)
             return globals().get(leaf, None)
-        # get value of leaf
-        if isinstance(nested, dict):
-            val = nested.get(leaf, None)
-        elif isinstance(nested, object):
-            if "(" in leaf:  # leaf is a function
+        # Get value of leaf in dict
+        if isinstance(object_or_dict, dict):
+            value = object_or_dict.get(leaf, None)
+        # Get value of leaf in object
+        elif isinstance(object_or_dict, object):
+            if "(" in leaf:
+                # leaf should be an object function
                 leaf_elements = leaf.replace(")", "").replace(" ", "").split("(")
                 leaf_arg_list = leaf_elements.pop().split(",")
                 leaf_func = leaf_elements.pop()
@@ -313,19 +315,21 @@ class ProvCapture(object):
                         leaf_kwargs[k] = v.replace('"', "")
                     elif arg:
                         leaf_args.append(arg.replace('"', ""))
-                val = getattr(nested, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
-            else:                                               # leaf is an attribute
-                val = getattr(nested, leaf, None)
+                value = getattr(object_or_dict, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
+            else:
+                # leaf should be an object attribute
+                value = getattr(object_or_dict, leaf, None)
         else:
             raise TypeError
-        # continue to explore branch
-        if len(list_branch):
-            str_branch = ".".join(list_branch)
-            return self.get_nested_value(val, str_branch)
-        # return value of leaf
-        if not val:
-            val = globals().get(leaf, None)
-        return val
+        # Continue to explore branch
+        if len(branch_list):
+            branch_str = ".".join(branch_list)
+            return self.get_nested_value(value, branch_str)
+        # No more branch to explore
+        if not value:
+            # Try to find leaf in globals (not found in object_or_dict)
+            value = globals().get(leaf, None)
+        return value
 
     def get_item_properties(self, nested, item_description):
         """Helper function that returns properties of an entity or member."""
