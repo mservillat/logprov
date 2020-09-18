@@ -423,6 +423,19 @@ class ProvCapture(object):
             value = self.get_nested_value(class_instance, var)
             new_id = self.get_entity_id(value, te_dict["item_description"])
             if new_id != entity_id:
+                modifier = te_dict["modifier"]
+                previous_ids = te_dict["previous_ids"]
+                while new_id in previous_ids:
+                    modifier += 1
+                    new_id += 1
+                    self.logger.warning(f'id has already been taken by this variable'
+                                        f' ({te_dict["item_description"]["value"]} {entity_id}): '
+                                        f'update modifier to {modifier}')
+                previous_ids.append(new_id)
+                te_dict["last_id"] = new_id
+                te_dict["previous_ids"] = previous_ids
+                te_dict["modifier"] = modifier
+                self.traced_entities[var] = te_dict
                 # Entity record
                 prov_record_ent = {
                     "entity_id": new_id,
@@ -441,9 +454,6 @@ class ProvCapture(object):
                     "generated_time": datetime.datetime.now().isoformat(),
                 }
                 records.append(prov_record)
-                te_dict["last_id"] = new_id
-                te_dict["previous_ids"].append(entity_id)
-                self.traced_entities[var] = te_dict
                 self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
         return records
 
