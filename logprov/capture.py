@@ -176,11 +176,13 @@ class ProvCapture(object):
             class_instance = args[0]
             class_instance.args = args
             class_instance.kwargs = kwargs
+            log_active = self.log_is_active(class_instance, activity)
 
             # provenance capture before execution
-            derivation_records = self.get_derivation_records(class_instance, activity)
-            parameter_records = self.get_parameters_records(class_instance, activity, activity_id)
-            usage_records = self.get_usage_records(class_instance, activity, activity_id)
+            if log_active:
+                derivation_records = self.get_derivation_records(class_instance, activity)
+                parameter_records = self.get_parameters_records(class_instance, activity, activity_id)
+                usage_records = self.get_usage_records(class_instance, activity, activity_id)
 
             # activity execution
             start = datetime.datetime.now().isoformat()
@@ -188,7 +190,7 @@ class ProvCapture(object):
             end = datetime.datetime.now().isoformat()
 
             # no provenance logging
-            if not self.log_is_active(class_instance, activity):
+            if not log_active:
                 return result
             # provenance logging only if activity ends properly
             session_id = self.log_session(class_instance, start)
@@ -220,7 +222,7 @@ class ProvCapture(object):
         try:
             method = self.config["hash_type"].lower()
         except KeyError as ex:
-            method = "sha1"
+            method = logprov_default_config["hash_type"]
         if method not in SUPPORTED_HASH_TYPE:
             self.logger.warning(f"Hash method {method} not supported")
             method = "Full path"
@@ -265,7 +267,7 @@ class ProvCapture(object):
             if Path(os.path.expandvars(value)).is_dir() and index:
                 filename = Path(value) / index
             return self.get_file_hash(filename)
-        # If FileCollection: id = file hash  (value is the file name)
+        # If File: id = file hash  (value is the file name)
         if ed_type == "File":
             return self.get_file_hash(value)
         # entity is not a File (so must be a PythonObject)
