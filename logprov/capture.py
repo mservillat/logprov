@@ -333,6 +333,7 @@ class ProvCapture(object):
 
     def get_item_properties(self, nested, item_description):
         """Helper function that returns properties of an entity or member."""
+        # Get entity description name and type
         try:
             ed_name = item_description["entity_description"]
             ed_type = self.definitions["entity_description"][ed_name]["type"]
@@ -342,18 +343,23 @@ class ProvCapture(object):
             ed_type = ""
         value = ""
         properties = {}
+        # item has an id to be resolved
         if "id" in item_description:
             item_id = str(self.get_nested_value(nested, item_description["id"]))
             item_ns = item_description.get("namespace", None)
             if item_ns:
-                item_id = item_ns + ":" + item_id
+                item_id = f"{item_ns}:{item_id}"
             properties["id"] = item_id
+        # item has a location to be resolved
         if "location" in item_description:
             properties["location"] = self.get_nested_value(nested, item_description["location"])
+        # item has a value to be resolved
         if "value" in item_description:
             value = self.get_nested_value(nested, item_description["value"])
+        # Copy location to value
         if not value and "location" in properties:
             value = properties["location"]
+        # NOT USED - TO REMOVE
         if "overwrite" in item_description:
             # Add or increment entity_version to make value a different entity
             if hasattr(value, "entity_version"):
@@ -365,19 +371,24 @@ class ProvCapture(object):
                     setattr(value, "entity_version", 1)
                 except AttributeError as ex:
                     self.logger.warning(f"{repr(ex)} for {value}")
+        # Get id from value if no id was found
         if value and "id" not in properties:
             properties["id"] = self.get_entity_id(value, item_description)
+            # If File/FileCollection: keep hash and hash_type as properties
             if "File" in ed_type and properties["id"] != value:
                 method = self.get_hash_method()
                 properties["hash"] = properties["id"]
                 properties["hash_type"] = method
+        # If PythonObject: keep value as properties (-->ValueEntity)
         if value and ed_type == "PythonObject":
             properties["value"] = str(value)
+        # Keep description attributes as properties
         if ed_name:
             properties["name"] = ed_name
             for attr in ["type", "contentType"]:
                 if attr in self.definitions["entity_description"][ed_name]:
                     properties[attr] = self.definitions["entity_description"][ed_name][attr]
+        # Expand location to get absolute path
         if "location" in properties and properties["location"]:
             properties["location"] = os.path.expandvars(properties["location"])
         return properties
