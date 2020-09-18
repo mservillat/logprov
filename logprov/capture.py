@@ -122,7 +122,7 @@ class ProvCapture(object):
             self.definitions = definitions_default
         # global variables
         self.sessions = []
-        self.traced_entities = {}
+        self.traced_variables = {}
 
     # Logger configuration
 
@@ -201,6 +201,7 @@ class ProvCapture(object):
                 self.log_prov_record(prov_record)
             self.log_generation(class_instance, activity, activity_id)
             self.log_finish_activity(activity_id, end)
+            print(self.traced_variables)
             return result
 
         return wrapper
@@ -267,8 +268,8 @@ class ProvCapture(object):
         # entity is not a File (must be a PythonObject)
         try:
             entity_id = abs(hash(value) + hash(str(value)))
-            if "value" in item_description and item_description["value"] in self.traced_entities:
-                entity_id += self.traced_entities[item_description["value"]]["modifier"]
+            if "value" in item_description and item_description["value"] in self.traced_variables:
+                entity_id += self.traced_variables[item_description["value"]]["modifier"]
             if hasattr(value, "entity_version"):
                 entity_id += getattr(value, "entity_version")
             return entity_id
@@ -276,8 +277,8 @@ class ProvCapture(object):
             # two different objects may use the same memory address
             # so use hash(ed_name) to avoid issues
             entity_id = abs(id(value) + hash(ed_name))
-            if "value" in item_description and item_description["value"] in self.traced_entities:
-                entity_id += self.traced_entities[item_description["value"]]["modifier"]
+            if "value" in item_description and item_description["value"] in self.traced_variables:
+                entity_id += self.traced_variables[item_description["value"]]["modifier"]
             return entity_id
 
     def get_nested_value(self, nested, branch):
@@ -357,8 +358,10 @@ class ProvCapture(object):
                 method = self.get_hash_method()
                 properties["hash"] = properties["id"]
                 properties["hash_type"] = method
-        if entity_name:
-            properties["name"] = entity_name
+        if value and ed_type == "PythonObject":
+            properties["value"] = str(value)
+        if ed_name:
+            properties["name"] = ed_name
             for attr in ["type", "contentType"]:
                 if attr in self.definitions["entity_description"][ed_name]:
                     properties[attr] = self.definitions["entity_description"][ed_name][attr]
@@ -418,34 +421,36 @@ class ProvCapture(object):
     def get_derivation_records(self, class_instance, activity):
         """Get log records for potentially derived entity."""
         records = []
-        for var, te_dict in self.traced_entities.items():
-            entity_id = te_dict["last_id"]
+        for var, tv_dict in self.traced_variables.items():
+            entity_id = tv_dict["last_id"]
             value = self.get_nested_value(class_instance, var)
-            new_id = self.get_entity_id(value, te_dict["item_description"])
+            new_id = self.get_entity_id(value, tv_dict["item_description"])
             if new_id != entity_id:
-                modifier = te_dict["modifier"]
-                previous_ids = te_dict["previous_ids"]
+                modifier = tv_dict["modifier"]
+                previous_ids = tv_dict["previous_ids"]
                 while new_id in previous_ids:
                     modifier += 1
                     new_id += 1
                     self.logger.warning(f'id has already been taken by this variable'
-                                        f' ({te_dict["item_description"]["value"]} {entity_id}): '
+                                        f' ({var} {entity_id}): '
                                         f'update modifier to {modifier}')
                 previous_ids.append(new_id)
-                te_dict["last_id"] = new_id
-                te_dict["previous_ids"] = previous_ids
-                te_dict["modifier"] = modifier
-                self.traced_entities[var] = te_dict
+                self.traced_variables[var] = {
+                    "last_id": new_id,
+                    "previous_ids": previous_ids,
+                    "item_description": tv_dict["item_description"],
+                    "modifier": modifier,
+                }
                 # Entity record
                 prov_record_ent = {
                     "entity_id": new_id,
                 }
-                if "entity_description" in te_dict["item_description"]:
-                    prov_record_ent.update({"name": te_dict["item_description"]["entity_description"]})
-                if "type" in te_dict["item_description"]:
-                    prov_record_ent.update({"type": te_dict["item_description"]["type"]})
-                if "value" in te_dict["item_description"]:
-                    prov_record_ent.update({"variable_name": te_dict["item_description"]["value"]})
+                if "entity_description" in tv_dict["item_description"]:
+                    prov_record_ent.update({"name": tv_dict["item_description"]["entity_description"]})
+                if "type" in tv_dict["item_description"]:
+                    prov_record_ent.update({"type": tv_dict["item_description"]["type"]})
+                if "value" in tv_dict["item_description"]:
+                    prov_record_ent.update({"variable_name": tv_dict["item_description"]["value"]})
                 records.append(prov_record_ent)
                 # Derivation record
                 prov_record = {
@@ -522,9 +527,10 @@ class ProvCapture(object):
                 entity_id = props.pop("id")
                 # Keep new entity as traced
                 if "value" in item_description:
-                    if item_description["value"] in self.traced_entities:
-                        modifier = self.traced_entities[item_description["value"]]["modifier"]
-                        previous_ids = self.traced_entities[item_description["value"]]["previous_ids"]
+                    if item_description["value"] in self.traced_variables:
+                        tv_dict = self.traced_variables[item_description["value"]]
+                        modifier = tv_dict["modifier"]
+                        previous_ids = tv_dict["previous_ids"]
                         while entity_id in previous_ids:
                             modifier += 1
                             entity_id += 1
@@ -535,7 +541,7 @@ class ProvCapture(object):
                     else:
                         modifier = 0
                         previous_ids = [entity_id]
-                    self.traced_entities[item_description["value"]] = {
+                    self.traced_variables[item_description["value"]] = {
                         "last_id": entity_id,
                         "previous_ids": previous_ids,
                         "item_description": item_description,
