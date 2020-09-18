@@ -52,7 +52,7 @@
 #     email:
 #
 
-activities:
+activity_description:
 
     get_observations:
         description:
@@ -222,7 +222,7 @@ activities:
               entityName: FluxPointsDataset
               value: flux_points
 
-entities:
+entity_description:
     PythonObject:
         description: "A Python variable in memory"
         type: PythonObject

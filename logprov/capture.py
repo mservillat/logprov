@@ -71,9 +71,9 @@ logprov_default_config = {
 }
 
 definitions_default = {
-    "activity_descriptions": {},
-    "entity_descriptions": {},
-    "agents": {},
+    "activity_description": {},
+    "entity_description": {},
+    "agent": {},
 }
 
 
@@ -144,7 +144,7 @@ class ProvCapture(object):
     def log_is_active(self, class_instance, activity):
         """Check if provenance option is enabled in configuration settings."""
         active = True
-        # if activity not in self.definitions["activities"].keys():
+        # if activity not in self.definitions["activity_description"].keys():
         #     active = False
         if not class_instance:
             active = False
@@ -164,7 +164,7 @@ class ProvCapture(object):
     def trace(self, func):
         """A decorator which tracks provenance info."""
 
-        if func.__name__ not in self.definitions["activities"]:
+        if func.__name__ not in self.definitions["activity_description"]:
             self.logger.warning(f'No definition for function {func.__name__}')
             # TODO: try to create a definition automatically (may not link used/wgb entities though...)
 
@@ -250,7 +250,7 @@ class ProvCapture(object):
         """Helper function that makes the id of an entity, depending on its type."""
         try:
             entity_name = item["entityName"]
-            entity_type = self.definitions["entities"][entity_name]["type"]
+            entity_type = self.definitions["entity_description"][entity_name]["type"]
         except KeyError as ex:
             # self.logger.warning(f"{repr(ex)} in {item}")
             entity_name = ""
@@ -258,13 +258,13 @@ class ProvCapture(object):
 
         if entity_type == "FileCollection":
             filename = value
-            index = self.definitions["entities"][entity_name].get("index", "")
+            index = self.definitions["entity_description"][entity_name].get("index", "")
             if Path(os.path.expandvars(value)).is_dir() and index:
                 filename = Path(value) / index
             return self.get_file_hash(filename)
         if entity_type == "File":
             return self.get_file_hash(value)
-
+        # entity is not a File (must be a PythonObject)
         try:
             entity_id = abs(hash(value) + hash(str(value)))
             if hasattr(value, "entity_version"):
@@ -286,7 +286,7 @@ class ProvCapture(object):
         if isinstance(nested, dict):
             val = nested.get(leaf, None)
         elif isinstance(nested, object):
-            if "(" in leaf:                                     # leaf is a function
+            if "(" in leaf:  # leaf is a function
                 leaf_elements = leaf.replace(")", "").replace(" ", "").split("(")
                 leaf_arg_list = leaf_elements.pop().split(",")
                 leaf_func = leaf_elements.pop()
@@ -316,7 +316,7 @@ class ProvCapture(object):
         """Helper function that returns properties of an entity or member."""
         try:
             entity_name = item["entityName"]
-            entity_type = self.definitions["entities"][entity_name]["type"]
+            entity_type = self.definitions["entity_description"][entity_name]["type"]
         except Exception as ex:
             self.logger.warning(f"{repr(ex)} in {item}")
             entity_name = ""
@@ -355,8 +355,8 @@ class ProvCapture(object):
         if entity_name:
             properties["name"] = entity_name
             for attr in ["type", "contentType"]:
-                if attr in self.definitions["entities"][entity_name]:
-                    properties[attr] = self.definitions["entities"][entity_name][attr]
+                if attr in self.definitions["entity_description"][entity_name]:
+                    properties[attr] = self.definitions["entity_description"][entity_name][attr]
         if "location" in properties and properties["location"]:
             properties["location"] = os.path.expandvars(properties["location"])
         return properties
@@ -377,6 +377,7 @@ class ProvCapture(object):
         if session_id not in self.sessions:
             self.sessions.append(session_id)
             system = self.get_system_provenance()
+            # TODO: add agent with os.getlogin() + relation to session
             prov_record = {
                 "session_id": session_id,
                 "name": session_name,
@@ -427,8 +428,8 @@ class ProvCapture(object):
         """Get log records for parameters of the activity."""
         records = []
         parameter_list = []
-        if activity in self.definitions["activities"]:
-            parameter_list = self.definitions["activities"][activity]["parameters"] or []
+        if activity in self.definitions["activity_description"]:
+            parameter_list = self.definitions["activity_description"][activity]["parameters"] or []
         if parameter_list:
             parameters = {}
             for parameter in parameter_list:
@@ -448,8 +449,9 @@ class ProvCapture(object):
         """Get log records for each usage of the activity."""
         records = []
         usage_list = []
-        if activity in self.definitions["activities"]:
-            usage_list = self.definitions["activities"][activity]["usage"] or []
+        if activity in self.definitions["activity_description"]:
+            if "usage" in self.definitions["activity_description"][activity]:
+                usage_list = self.definitions["activity_description"][activity]["usage"] or []
         for item in usage_list:
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
@@ -478,8 +480,8 @@ class ProvCapture(object):
     def log_generation(self, class_instance, activity, activity_id):
         """Log generated entities."""
         generation_list = []
-        if activity in self.definitions["activities"]:
-            generation_list = self.definitions["activities"][activity]["generation"] or []
+        if activity in self.definitions["activity_description"]:
+            generation_list = self.definitions["activity_description"][activity]["generation"] or []
         for item in generation_list:
             props = self.get_item_properties(class_instance, item)
             if "id" in props:
