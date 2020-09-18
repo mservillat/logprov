@@ -246,38 +246,38 @@ class ProvCapture(object):
             self.logger.warning(f"File entity {path} not found")
             return path
 
-    def get_entity_id(self, value, item):
+    def get_entity_id(self, value, item_description):
         """Helper function that makes the id of an entity, depending on its type."""
         try:
-            entity_name = item["entityName"]
-            entity_type = self.definitions["entity_description"][entity_name]["type"]
+            ed_name = item_description["entity_description"]
+            ed_type = self.definitions["entity_description"][ed_name]["type"]
         except KeyError as ex:
-            # self.logger.warning(f"{repr(ex)} in {item}")
-            entity_name = ""
-            entity_type = ""
+            # self.logger.warning(f"{repr(ex)} in {item_description}")
+            ed_name = ""
+            ed_type = ""
 
-        if entity_type == "FileCollection":
+        if ed_type == "FileCollection":
             filename = value
-            index = self.definitions["entity_description"][entity_name].get("index", "")
+            index = self.definitions["entity_description"][ed_name].get("index", "")
             if Path(os.path.expandvars(value)).is_dir() and index:
                 filename = Path(value) / index
             return self.get_file_hash(filename)
-        if entity_type == "File":
+        if ed_type == "File":
             return self.get_file_hash(value)
         # entity is not a File (must be a PythonObject)
         try:
             entity_id = abs(hash(value) + hash(str(value)))
-            if "value" in item and item["value"] in self.traced_entities:
-                entity_id += self.traced_entities[item["value"]]["modifier"]
+            if "value" in item_description and item_description["value"] in self.traced_entities:
+                entity_id += self.traced_entities[item_description["value"]]["modifier"]
             if hasattr(value, "entity_version"):
                 entity_id += getattr(value, "entity_version")
             return entity_id
         except TypeError:
             # two different objects may use the same memory address
-            # so use hash(entity_name) to avoid issues
-            entity_id = abs(id(value) + hash(entity_name))
-            if "value" in item and item["value"] in self.traced_entities:
-                entity_id += self.traced_entities[item["value"]]["modifier"]
+            # so use hash(ed_name) to avoid issues
+            entity_id = abs(id(value) + hash(ed_name))
+            if "value" in item_description and item_description["value"] in self.traced_entities:
+                entity_id += self.traced_entities[item_description["value"]]["modifier"]
             return entity_id
 
     def get_nested_value(self, nested, branch):
@@ -317,30 +317,30 @@ class ProvCapture(object):
             val = globals().get(leaf, None)
         return val
 
-    def get_item_properties(self, nested, item):
+    def get_item_properties(self, nested, item_description):
         """Helper function that returns properties of an entity or member."""
         try:
-            entity_name = item["entityName"]
-            entity_type = self.definitions["entity_description"][entity_name]["type"]
+            ed_name = item_description["entity_description"]
+            ed_type = self.definitions["entity_description"][ed_name]["type"]
         except Exception as ex:
-            self.logger.warning(f"{repr(ex)} in {item}")
-            entity_name = ""
-            entity_type = ""
+            self.logger.warning(f"{repr(ex)} in {item_description}")
+            ed_name = ""
+            ed_type = ""
         value = ""
         properties = {}
-        if "id" in item:
-            item_id = str(self.get_nested_value(nested, item["id"]))
-            item_ns = item.get("namespace", None)
+        if "id" in item_description:
+            item_id = str(self.get_nested_value(nested, item_description["id"]))
+            item_ns = item_description.get("namespace", None)
             if item_ns:
                 item_id = item_ns + ":" + item_id
             properties["id"] = item_id
-        if "location" in item:
-            properties["location"] = self.get_nested_value(nested, item["location"])
-        if "value" in item:
-            value = self.get_nested_value(nested, item["value"])
+        if "location" in item_description:
+            properties["location"] = self.get_nested_value(nested, item_description["location"])
+        if "value" in item_description:
+            value = self.get_nested_value(nested, item_description["value"])
         if not value and "location" in properties:
             value = properties["location"]
-        if "overwrite" in item:
+        if "overwrite" in item_description:
             # Add or increment entity_version to make value a different entity
             if hasattr(value, "entity_version"):
                 version = getattr(value, "entity_version")
@@ -352,16 +352,16 @@ class ProvCapture(object):
                 except AttributeError as ex:
                     self.logger.warning(f"{repr(ex)} for {value}")
         if value and "id" not in properties:
-            properties["id"] = self.get_entity_id(value, item)
-            if "File" in entity_type and properties["id"] != value:
+            properties["id"] = self.get_entity_id(value, item_description)
+            if "File" in ed_type and properties["id"] != value:
                 method = self.get_hash_method()
                 properties["hash"] = properties["id"]
                 properties["hash_type"] = method
         if entity_name:
             properties["name"] = entity_name
             for attr in ["type", "contentType"]:
-                if attr in self.definitions["entity_description"][entity_name]:
-                    properties[attr] = self.definitions["entity_description"][entity_name][attr]
+                if attr in self.definitions["entity_description"][ed_name]:
+                    properties[attr] = self.definitions["entity_description"][ed_name][attr]
         if "location" in properties and properties["location"]:
             properties["location"] = os.path.expandvars(properties["location"])
         return properties
@@ -421,18 +421,18 @@ class ProvCapture(object):
         for var, te_dict in self.traced_entities.items():
             entity_id = te_dict["last_id"]
             value = self.get_nested_value(class_instance, var)
-            new_id = self.get_entity_id(value, te_dict["item"])
+            new_id = self.get_entity_id(value, te_dict["item_description"])
             if new_id != entity_id:
                 # Entity record
                 prov_record_ent = {
                     "entity_id": new_id,
                 }
-                if "entityName" in te_dict["item"]:
-                    prov_record_ent.update({"name": te_dict["item"]["entityName"]})
-                if "type" in te_dict["item"]:
-                    prov_record_ent.update({"type": te_dict["item"]["type"]})
-                if "value" in te_dict["item"]:
-                    prov_record_ent.update({"variable_name": te_dict["item"]["value"]})
+                if "entity_description" in te_dict["item_description"]:
+                    prov_record_ent.update({"name": te_dict["item_description"]["entity_description"]})
+                if "type" in te_dict["item_description"]:
+                    prov_record_ent.update({"type": te_dict["item_description"]["type"]})
+                if "value" in te_dict["item_description"]:
+                    prov_record_ent.update({"variable_name": te_dict["item_description"]["value"]})
                 records.append(prov_record_ent)
                 # Derivation record
                 prov_record = {
@@ -474,8 +474,8 @@ class ProvCapture(object):
         if activity in self.definitions["activity_description"]:
             if "usage" in self.definitions["activity_description"][activity]:
                 usage_list = self.definitions["activity_description"][activity]["usage"] or []
-        for item in usage_list:
-            props = self.get_item_properties(class_instance, item)
+        for item_description in usage_list:
+            props = self.get_item_properties(class_instance, item_description)
             if "id" in props:
                 entity_id = props.pop("id")
                 if "namespace" in props:
@@ -485,16 +485,16 @@ class ProvCapture(object):
                     "activity_id": activity_id,
                     "used_id": entity_id,
                 }
-                if "role" in item:
-                    prov_record.update({"used_role": item["role"]})
+                if "role" in item_description:
+                    prov_record.update({"used_role": item_description["role"]})
                 # Entity record
                 prov_record_ent = {
                     "entity_id": entity_id,
                 }
-                if "entityName" in item:
-                    prov_record_ent.update({"name": item["entityName"]})
-                if "value" in item:
-                    prov_record_ent.update({"variable_name": item["value"]})
+                if "entity_description" in item_description:
+                    prov_record_ent.update({"name": item_description["entity_description"]})
+                if "value" in item_description:
+                    prov_record_ent.update({"variable_name": item_description["value"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 records.append(prov_record_ent)
@@ -506,24 +506,31 @@ class ProvCapture(object):
         generation_list = []
         if activity in self.definitions["activity_description"]:
             generation_list = self.definitions["activity_description"][activity]["generation"] or []
-        for item in generation_list:
-            props = self.get_item_properties(class_instance, item)
+        for item_description in generation_list:
+            props = self.get_item_properties(class_instance, item_description)
             if "id" in props:
                 entity_id = props.pop("id")
                 # Keep new entity as traced
-                if "value" in item:
-                    if item["value"] in self.traced_entities:
-                        modifier = self.traced_entities[item["value"]]["modifier"]
-                        previous_ids = self.traced_entities[item["value"]]["previous_ids"]
-                        while entity_id in self.traced_entities[item["value"]]["previous_ids"]:
-                            # id has already been taken by this variable... should be different now !
-                            self.logger.warning(f'id has already been taken by this variable: {item["value"]} {entity_id}')
+                if "value" in item_description:
+                    if item_description["value"] in self.traced_entities:
+                        modifier = self.traced_entities[item_description["value"]]["modifier"]
+                        previous_ids = self.traced_entities[item_description["value"]]["previous_ids"]
+                        while entity_id in previous_ids:
                             modifier += 1
                             entity_id += 1
+                            self.logger.warning(f'id has already been taken by this variable '
+                                                f'({item_description["value"]} {entity_id}): '
+                                                f'update modifier to {modifier}')
+                        previous_ids.append(entity_id)
                     else:
                         modifier = 0
-                        previous_ids = []
-                    self.traced_entities[item["value"]] = {"last_id": entity_id, "previous_ids": previous_ids, "item": item, "modifier": modifier}
+                        previous_ids = [entity_id]
+                    self.traced_entities[item_description["value"]] = {
+                        "last_id": entity_id,
+                        "previous_ids": previous_ids,
+                        "item_description": item_description,
+                        "modifier": modifier,
+                    }
                 if "namespace" in props:
                     entity_id = props.pop("namespace") + ":" + entity_id
                 # Generation record
@@ -531,24 +538,24 @@ class ProvCapture(object):
                     "activity_id": activity_id,
                     "generated_id": entity_id,
                 }
-                if "role" in item:
-                    prov_record.update({"generated_role": item["role"]})
+                if "role" in item_description:
+                    prov_record.update({"generated_role": item_description["role"]})
                 # Entity record
                 prov_record_ent = {
                     "entity_id": entity_id,
                 }
-                if "entityName" in item:
-                    prov_record_ent.update({"name": item["entityName"]})
-                if "value" in item:
-                    prov_record_ent.update({"variable_name": item["value"]})
+                if "entity_description" in item_description:
+                    prov_record_ent.update({"name": item_description["entity_description"]})
+                if "value" in item_description:
+                    prov_record_ent.update({"variable_name": item_description["value"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 self.log_prov_record(prov_record_ent)
                 self.log_prov_record(prov_record)
-                if "has_members" in item:
-                    self.log_members(entity_id, item["has_members"], class_instance)
-                if "has_progenitors" in item:
-                    self.log_progenitors(entity_id, item["has_progenitors"], class_instance)
+                if "has_members" in item_description:
+                    self.log_members(entity_id, item_description["has_members"], class_instance)
+                if "has_progenitors" in item_description:
+                    self.log_progenitors(entity_id, item_description["has_progenitors"], class_instance)
 
     def log_members(self, entity_id, subitem, class_instance):
         """Log members of and entity."""
@@ -569,8 +576,8 @@ class ProvCapture(object):
                 prov_record_ent = {
                     "entity_id": mem_id,
                 }
-                if "entityName" in subitem:
-                    prov_record_ent.update({"name": subitem["entityName"]})
+                if "entity_description" in subitem:
+                    prov_record_ent.update({"name": subitem["entity_description"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 self.log_prov_record(prov_record_ent)
@@ -600,17 +607,17 @@ class ProvCapture(object):
                 self.log_prov_record(prov_record_ent)
                 self.log_prov_record(prov_record)
 
-    def log_file_generation(self, file_path, entity_name="", used=None, role="", activity_name=""):
+    def log_file_generation(self, file_path, entity_description="", used=None, role="", activity_name=""):
         # get file properties
         if os.path.isfile(file_path):
-            item = dict(
+            item_description = dict(
                 file_path=file_path,
-                entityName=entity_name,
+                entity_description=entity_description,
             )
-            entity_id = self.get_entity_id(file_path, item)
+            entity_id = self.get_entity_id(file_path, item_description)
             prov_record = {
                 "entity_id": entity_id,
-                "name": entity_name,
+                "name": entity_description,
                 "location": file_path,
                 "hash": entity_id,
                 "hash_type": self.config["hash_type"],

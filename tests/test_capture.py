@@ -19,7 +19,7 @@ activity_description:
         generation:
             - role: object1
               description: "output object"
-              entityName: Object
+              entity_description: Object
               value: object1
     function2:
         description: "set value of object2 using object1"
@@ -30,12 +30,12 @@ activity_description:
         usage:
             - role: object1
               description: "input object"
-              entityName: Object
+              entity_description: Object
               value: object1
         generation:
             - role: object2
               description: "output object"
-              entityName: Object
+              entity_description: Object
               value: object2
 entity_description:
     Object:
@@ -86,8 +86,10 @@ class Class1(object):
 start = datetime.datetime.now().isoformat()
 c1 = Class1()
 c1.function1(value=2)
-c1.function2(value=2)
+c1.function1(value=2)
 c1.function3(value=4)
+c1.function2(value=2)
+c1.function3(value=2)
 c1.function2(value=2)
 end = datetime.datetime.now().isoformat()
 
