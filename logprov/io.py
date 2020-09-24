@@ -19,6 +19,7 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
     pdoc = ProvDocument()
     pdoc.set_default_namespace("param:")
     pdoc.add_namespace(default_ns, default_ns + ":")
+    pdoc.add_namespace("voprov", "voprov:")
     records = {}
     sess_id = ""
     for provdict in provlist:
@@ -82,7 +83,7 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 else:
                     agent = pdoc.agent(agent_id)
                     records[agent_id] = agent
-                act.wasAssociatedWith(agent, attributes={"prov:role": "Creator"})
+                act.wasAssociatedWith(agent, attributes={"prov:role": "Operator"})
             if "parameters" in provdict:
                 params_record = provdict.pop("parameters")
                 params = {
@@ -96,6 +97,8 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 for name, value in params.items():
                     par = pdoc.entity(act_id + "_" + name)
                     par.add_attributes({"prov:label": name + " = " + str(value)})
+                    par.add_attributes({"prov:type": "voprov:Parameter"})
+                    par.add_attributes({"voprov:name": name})
                     par.add_attributes({"prov:value": str(value)})
                     act.used(par, attributes={"prov:type": "Setup"})
             # usage
