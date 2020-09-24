@@ -203,7 +203,6 @@ class ProvCapture(object):
                 self.log_prov_record(prov_record)
             self.log_generation(class_instance, activity, activity_id)
             self.log_finish_activity(activity_id, end)
-            print(self.traced_variables)
             return result
 
         return wrapper
