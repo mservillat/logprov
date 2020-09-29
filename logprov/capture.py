@@ -427,12 +427,13 @@ class ProvCapture(object):
 
     def log_session(self, class_instance, start):
         """Log start of a session."""
-        if isinstance(class_instance, dict):
-            session_id = abs(hash(globals()['__name__']))
-        elif isinstance(class_instance, object):
-            session_id = abs(hash(class_instance))
-        else:
-            raise TypeError
+        # if isinstance(class_instance, dict):
+        #     session_id = abs(hash(globals()['__name__']))
+        # elif isinstance(class_instance, object):
+        #     session_id = abs(hash(class_instance))
+        # else:
+        #     raise TypeError
+        session_id = abs(hash(self))
         if session_id not in self.sessions:
             module_name = class_instance.__class__.__module__
             class_name = class_instance.__class__.__name__
@@ -522,20 +523,22 @@ class ProvCapture(object):
         """Get log records for parameters of the activity."""
         records = []
         parameter_list = []
+        parameters = {}
         if activity in self.definitions["activity_description"]:
-            parameter_list = self.definitions["activity_description"][activity]["parameters"] or []
+            if "parameters" in self.definitions["activity_description"][activity]:
+                parameter_list = self.definitions["activity_description"][activity]["parameters"] or []
         if parameter_list:
-            parameters = {}
             for parameter in parameter_list:
                 if "name" in parameter and "value" in parameter:
                     parameter_value = self.get_nested_value(class_instance, parameter["value"])
                     parameters[parameter["name"]] = parameter_value
-            if parameters:
-                prov_record = {
-                    "activity_id": activity_id,
-                    "parameters": parameters
-                }
-                records.append(prov_record)
+
+        if parameters:
+            prov_record = {
+                "activity_id": activity_id,
+                "parameters": parameters
+            }
+            records.append(prov_record)
         return records
 
     def get_usage_records(self, class_instance, activity, activity_id):
