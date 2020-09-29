@@ -46,14 +46,14 @@ logging_default_config = {
     'handlers': {
         'provHandler': {
             'class': 'logging.handlers.WatchedFileHandler',
-            'level': 'INFO',
+            'level': 'DEBUG',
             'formatter': 'simple',
             'filename': 'prov.log',
         },
     },
     'loggers': {
         'provLogger': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'handlers': ['provHandler'],
             'propagate': False,
         },
@@ -123,6 +123,7 @@ class ProvCapture(object):
         # global variables
         self.sessions = []
         self.traced_variables = {}
+        self.globals = {}
 
     # Logger configuration
 
@@ -173,9 +174,20 @@ class ProvCapture(object):
 
             activity = func.__name__
             activity_id = self.get_activity_id()
-            class_instance = args[0]
-            class_instance.args = args
-            class_instance.kwargs = kwargs
+            self.globals = {k: func.__globals__[k] for k in func.__globals__.keys() if k[0:1] is not '_'}
+            # and k not in ['In', 'Out', 'exit', 'quit', 'provconfig', 'definitions_yaml', 'definitions']}
+            if ("method" in str(type(func))) or (len(args) > 0 and hasattr(args[0], "__dict__")):
+                # func is a class method, search entities in class instance self (arg[0] of the method)
+                self.logger.debug(f"{activity} is a class method")
+                class_instance = args[0]
+                class_instance.args = args
+                class_instance.kwargs = kwargs
+            else:
+                # func is a regular function, search entities in globals
+                class_instance = self.globals
+                class_instance["args"] = args
+                class_instance["kwargs"] = kwargs
+
             log_active = self.log_is_active(class_instance, activity)
 
             # provenance capture before execution
@@ -189,20 +201,19 @@ class ProvCapture(object):
             result = func(*args, **kwargs)
             end = datetime.datetime.now().isoformat()
 
-            # no provenance logging
-            if not log_active:
-                return result
-            # provenance logging only if activity ends properly
-            session_id = self.log_session(class_instance, start)
-            for prov_record in derivation_records:
-                self.log_prov_record(prov_record)
-            self.log_start_activity(activity, activity_id, session_id, start)
-            for prov_record in parameter_records:
-                self.log_prov_record(prov_record)
-            for prov_record in usage_records:
-                self.log_prov_record(prov_record)
-            self.log_generation(class_instance, activity, activity_id)
-            self.log_finish_activity(activity_id, end)
+            # provenance capture after execution
+            if log_active:
+                # rk: provenance logging only if activity ends properly
+                session_id = self.log_session(class_instance, start)
+                for prov_record in derivation_records:
+                    self.log_prov_record(prov_record)
+                self.log_start_activity(activity, activity_id, session_id, start)
+                for prov_record in parameter_records:
+                    self.log_prov_record(prov_record)
+                for prov_record in usage_records:
+                    self.log_prov_record(prov_record)
+                self.log_generation(class_instance, activity, activity_id)
+                self.log_finish_activity(activity_id, end)
             return result
 
         return wrapper
@@ -297,14 +308,21 @@ class ProvCapture(object):
         leaf = branch_list.pop(0)
         if not object_or_dict:
             # Try to find leaf in globals (no object_or_dict to explore)
-            return globals().get(leaf, None)
+            value = self.globals.get(leaf, None)
+            if value:
+                self.logger.debug(f"Found {leaf} in globals: {value} (no object or dict to search)")
+            else:
+                self.logger.debug(f"Not found: {leaf} (no object or dict to search)")
+            return value
         # Get value of leaf in dict
         if isinstance(object_or_dict, dict):
             value = object_or_dict.get(leaf, None)
+            if value:
+                self.logger.debug(f"Found {leaf} in a dict: {value}")
         # Get value of leaf in object
         elif isinstance(object_or_dict, object):
             if "(" in leaf:
-                # leaf should be an object function
+                # leaf is a function
                 leaf_elements = leaf.replace(")", "").replace(" ", "").split("(")
                 leaf_arg_list = leaf_elements.pop().split(",")
                 leaf_func = leaf_elements.pop()
@@ -318,8 +336,10 @@ class ProvCapture(object):
                         leaf_args.append(arg.replace('"', ""))
                 value = getattr(object_or_dict, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
             else:
-                # leaf should be an object attribute
+                # leaf is an attribute
                 value = getattr(object_or_dict, leaf, None)
+            if value:
+                self.logger.debug(f"Found {leaf} in an object: {value}")
         else:
             raise TypeError
         # Continue to explore branch
@@ -329,7 +349,11 @@ class ProvCapture(object):
         # No more branch to explore
         if not value:
             # Try to find leaf in globals (not found in object_or_dict)
-            value = globals().get(leaf, None)
+            value = self.globals.get(leaf, None)
+            if value:
+                self.logger.debug(f"Found {leaf} in globals: {value}")
+            else:
+                self.logger.debug(f"Not found: {leaf}")
         return value
 
     def get_item_properties(self, nested, item_description):
@@ -403,7 +427,12 @@ class ProvCapture(object):
 
     def log_session(self, class_instance, start):
         """Log start of a session."""
-        session_id = abs(hash(class_instance))
+        if isinstance(class_instance, dict):
+            session_id = abs(hash(globals()['__name__']))
+        elif isinstance(class_instance, object):
+            session_id = abs(hash(class_instance))
+        else:
+            raise TypeError
         if session_id not in self.sessions:
             module_name = class_instance.__class__.__module__
             class_name = class_instance.__class__.__name__
