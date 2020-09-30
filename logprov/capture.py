@@ -142,12 +142,12 @@ class ProvCapture(object):
         self.config['log_filename'] = log_filename
         self.logger.handlers[0].baseFilename = log_filename
 
-    def log_is_active(self, class_instance, activity):
+    def log_is_active(self, scope, activity):
         """Check if provenance option is enabled in configuration settings."""
         active = True
         # if activity not in self.definitions["activity_description"].keys():
         #     active = False
-        if not class_instance:
+        if not scope:
             active = False
         if "capture" not in self.config or not self.config["capture"]:
             active = False
@@ -179,22 +179,22 @@ class ProvCapture(object):
             if ("method" in str(type(func))) or (len(args) > 0 and hasattr(args[0], "__dict__")):
                 # func is a class method, search entities in class instance self (arg[0] of the method)
                 self.logger.debug(f"{activity} is a class method")
-                class_instance = args[0]
-                class_instance.args = args
-                class_instance.kwargs = kwargs
+                scope = args[0]
+                scope.args = args
+                scope.kwargs = kwargs
             else:
                 # func is a regular function, search entities in globals
-                class_instance = self.globals
-                class_instance["args"] = args
-                class_instance["kwargs"] = kwargs
+                scope = self.globals
+                scope["args"] = args
+                scope["kwargs"] = kwargs
 
-            log_active = self.log_is_active(class_instance, activity)
+            log_active = self.log_is_active(scope, activity)
 
             # provenance capture before execution
             if log_active:
-                derivation_records = self.get_derivation_records(class_instance, activity)
-                parameter_records = self.get_parameters_records(class_instance, activity, activity_id)
-                usage_records = self.get_usage_records(class_instance, activity, activity_id)
+                derivation_records = self.get_derivation_records(scope, activity)
+                parameter_records = self.get_parameters_records(scope, activity, activity_id)
+                usage_records = self.get_usage_records(scope, activity, activity_id)
 
             # activity execution
             start = datetime.datetime.now().isoformat()
@@ -204,7 +204,7 @@ class ProvCapture(object):
             # provenance capture after execution
             if log_active:
                 # rk: provenance logging only if activity ends properly
-                session_id = self.log_session(class_instance, start)
+                session_id = self.log_session(scope, start)
                 for prov_record in derivation_records:
                     self.log_prov_record(prov_record)
                 self.log_start_activity(activity, activity_id, session_id, start)
@@ -212,7 +212,7 @@ class ProvCapture(object):
                     self.log_prov_record(prov_record)
                 for prov_record in usage_records:
                     self.log_prov_record(prov_record)
-                self.log_generation(class_instance, activity, activity_id)
+                self.log_generation(scope, activity, activity_id)
                 self.log_finish_activity(activity_id, end)
             return result
 
@@ -302,12 +302,12 @@ class ProvCapture(object):
                     entity_id += self.traced_variables[item_description["value"]]["modifier"]
             return entity_id
 
-    def get_nested_value(self, object_or_dict, branch):
+    def get_nested_value(self, scope, branch):
         """Helper function that gets a specific value in a nested dictionary or class."""
         branch_list = branch.split(".")
         leaf = branch_list.pop(0)
-        if not object_or_dict:
-            # Try to find leaf in globals (no object_or_dict to explore)
+        if not scope:
+            # Try to find leaf in globals (no scope to explore)
             value = self.globals.get(leaf, None)
             if value:
                 self.logger.debug(f"Found {leaf} in globals (no object or dict to search)")
@@ -315,12 +315,12 @@ class ProvCapture(object):
                 self.logger.debug(f"Not found: {leaf} (no object or dict to search)")
             return value
         # Get value of leaf in dict
-        if isinstance(object_or_dict, dict):
-            value = object_or_dict.get(leaf, None)
+        if isinstance(scope, dict):
+            value = scope.get(leaf, None)
             if value:
                 self.logger.debug(f"Found {leaf} in a dict")
         # Get value of leaf in object
-        elif isinstance(object_or_dict, object):
+        elif isinstance(scope, object):
             if "(" in leaf:
                 # leaf is a function
                 leaf_elements = leaf.replace(")", "").replace(" ", "").split("(")
@@ -334,10 +334,10 @@ class ProvCapture(object):
                         leaf_kwargs[k] = v.replace('"', "")
                     elif arg:
                         leaf_args.append(arg.replace('"', ""))
-                value = getattr(object_or_dict, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
+                value = getattr(scope, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
             else:
                 # leaf is an attribute
-                value = getattr(object_or_dict, leaf, None)
+                value = getattr(scope, leaf, None)
             if value:
                 self.logger.debug(f"Found {leaf} in an object")
         else:
@@ -348,7 +348,7 @@ class ProvCapture(object):
             return self.get_nested_value(value, branch_str)
         # No more branch to explore
         if not value:
-            # Try to find leaf in globals (not found in object_or_dict)
+            # Try to find leaf in globals (not found in scope)
             value = self.globals.get(leaf, None)
             if value:
                 self.logger.debug(f"Found {leaf} in globals")
@@ -356,7 +356,7 @@ class ProvCapture(object):
                 self.logger.debug(f"Not found: {leaf}")
         return value
 
-    def get_item_properties(self, nested, item_description):
+    def get_item_properties(self, scope, item_description):
         """Helper function that returns properties of an entity or member."""
         # Get entity description name and type
         try:
@@ -370,17 +370,17 @@ class ProvCapture(object):
         properties = {}
         # item has an id to be resolved
         if "id" in item_description:
-            item_id = str(self.get_nested_value(nested, item_description["id"]))
+            item_id = str(self.get_nested_value(scope, item_description["id"]))
             item_ns = item_description.get("namespace", None)
             if item_ns:
                 item_id = f"{item_ns}:{item_id}"
             properties["id"] = item_id
         # item has a location to be resolved
         if "location" in item_description:
-            properties["location"] = self.get_nested_value(nested, item_description["location"])
+            properties["location"] = self.get_nested_value(scope, item_description["location"])
         # item has a value to be resolved
         if "value" in item_description:
-            value = self.get_nested_value(nested, item_description["value"])
+            value = self.get_nested_value(scope, item_description["value"])
         # Copy location to value
         if not value and "location" in properties:
             value = properties["location"]
@@ -425,18 +425,18 @@ class ProvCapture(object):
         record_date = datetime.datetime.now().isoformat()
         self.logger.info(f"{PROV_PREFIX}{record_date}{PROV_PREFIX}{prov_dict}")
 
-    def log_session(self, class_instance, start):
+    def log_session(self, scope, start):
         """Log start of a session."""
-        # if isinstance(class_instance, dict):
+        # if isinstance(scope, dict):
         #     session_id = abs(hash(globals()['__name__']))
-        # elif isinstance(class_instance, object):
-        #     session_id = abs(hash(class_instance))
+        # elif isinstance(scope, object):
+        #     session_id = abs(hash(scope))
         # else:
         #     raise TypeError
         session_id = abs(hash(self))
         if session_id not in self.sessions:
-            module_name = class_instance.__class__.__module__
-            class_name = class_instance.__class__.__name__
+            module_name = scope.__class__.__module__
+            class_name = scope.__class__.__name__
             session_name = f"{module_name}.{class_name}"
             self.sessions.append(session_id)
             system = self.get_system_provenance()
@@ -446,7 +446,7 @@ class ProvCapture(object):
                 "module": module_name,
                 "class": class_name,
                 "startTime": start,
-                #"configFile": class_instance.config.filename,
+                #"configFile": scope.config.filename,
                 "system": system,
                 "definitions": self.definitions,
             }
@@ -475,12 +475,12 @@ class ProvCapture(object):
         self.log_prov_record(prov_record)
         return prov_record
 
-    def get_derivation_records(self, class_instance, activity):
+    def get_derivation_records(self, scope, activity):
         """Get log records for potentially derived entity."""
         records = []
         for var, tv_dict in self.traced_variables.items():
             entity_id = tv_dict["last_id"]
-            value = self.get_nested_value(class_instance, var)
+            value = self.get_nested_value(scope, var)
             new_id = self.get_entity_id(value, tv_dict["item_description"])
             if new_id != entity_id:
                 modifier = tv_dict["modifier"]
@@ -519,7 +519,7 @@ class ProvCapture(object):
                 self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
         return records
 
-    def get_parameters_records(self, class_instance, activity, activity_id):
+    def get_parameters_records(self, scope, activity, activity_id):
         """Get log records for parameters of the activity."""
         records = []
         parameter_list = []
@@ -530,7 +530,7 @@ class ProvCapture(object):
         if parameter_list:
             for parameter in parameter_list:
                 if "name" in parameter and "value" in parameter:
-                    parameter_value = self.get_nested_value(class_instance, parameter["value"])
+                    parameter_value = self.get_nested_value(scope, parameter["value"])
                     parameters[parameter["name"]] = parameter_value
 
         if parameters:
@@ -541,7 +541,7 @@ class ProvCapture(object):
             records.append(prov_record)
         return records
 
-    def get_usage_records(self, class_instance, activity, activity_id):
+    def get_usage_records(self, scope, activity, activity_id):
         """Get log records for each usage of the activity."""
         records = []
         usage_list = []
@@ -549,7 +549,7 @@ class ProvCapture(object):
             if "usage" in self.definitions["activity_description"][activity]:
                 usage_list = self.definitions["activity_description"][activity]["usage"] or []
         for item_description in usage_list:
-            props = self.get_item_properties(class_instance, item_description)
+            props = self.get_item_properties(scope, item_description)
             if "id" in props:
                 entity_id = props.pop("id")
                 if "namespace" in props:
@@ -575,13 +575,13 @@ class ProvCapture(object):
                 records.append(prov_record)
         return records
 
-    def log_generation(self, class_instance, activity, activity_id):
+    def log_generation(self, scope, activity, activity_id):
         """Log generated entities."""
         generation_list = []
         if activity in self.definitions["activity_description"]:
             generation_list = self.definitions["activity_description"][activity]["generation"] or []
         for item_description in generation_list:
-            props = self.get_item_properties(class_instance, item_description)
+            props = self.get_item_properties(scope, item_description)
             if "id" in props:
                 entity_id = props.pop("id")
                 # Keep new entity as traced
@@ -628,16 +628,16 @@ class ProvCapture(object):
                 self.log_prov_record(prov_record_ent)
                 self.log_prov_record(prov_record)
                 if "has_members" in item_description:
-                    self.log_members(entity_id, item_description["has_members"], class_instance)
+                    self.log_members(entity_id, item_description["has_members"], scope)
                 if "has_progenitors" in item_description:
-                    self.log_progenitors(entity_id, item_description["has_progenitors"], class_instance)
+                    self.log_progenitors(entity_id, item_description["has_progenitors"], scope)
 
-    def log_members(self, entity_id, subitem, class_instance):
+    def log_members(self, entity_id, subitem, scope):
         """Log members of and entity."""
         if "list" in subitem:
-            member_list = self.get_nested_value(class_instance, subitem["list"]) or []
+            member_list = self.get_nested_value(scope, subitem["list"]) or []
         else:
-            member_list = [class_instance]
+            member_list = [scope]
         for member in member_list:
             props = self.get_item_properties(member, subitem)
             if "id" in props:
@@ -658,12 +658,12 @@ class ProvCapture(object):
                 self.log_prov_record(prov_record_ent)
                 self.log_prov_record(prov_record)
 
-    def log_progenitors(self, entity_id, subitem, class_instance):
+    def log_progenitors(self, entity_id, subitem, scope):
         """Log progenitors of and entity."""
         if "list" in subitem:
-            progenitor_list = self.get_nested_value(class_instance, subitem["list"]) or []
+            progenitor_list = self.get_nested_value(scope, subitem["list"]) or []
         else:
-            progenitor_list = [class_instance]
+            progenitor_list = [scope]
         for entity in progenitor_list:
             props = self.get_item_properties(entity, subitem)
             if "id" in props:
