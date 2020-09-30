@@ -19,4 +19,4 @@ logging_old:
     disable_existing_loggers: False
 capture: True
 hash_type: sha1
-log_filename: 'prov.log'
+log_filename: 'prov_gammapy.log'

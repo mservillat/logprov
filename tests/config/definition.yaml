@@ -68,16 +68,16 @@ activity_description:
         usage:
             - role: datastore
               description: "DataStore object file"
-              entityName: DataStore
+              entity_description: DataStore
               location: settings.observations.datastore
         generation:
             - role: observations_selected
               description: "Observations selected"
-              entityName: Observations
+              entity_description: Observations
               value: observations
               has_members:
                   list: observations.list
-                  entityName: Observation
+                  entity_description: Observation
                   id: obs_id
                   location: location(hdu_type="events").path().__str__()
                   namespace: gamma-events
@@ -112,25 +112,25 @@ activity_description:
         usage:
             - role: observations_selected
               description: "Observations selected"
-              entityName: Observations
+              entity_description: Observations
               value: observations
             - role: exclusion_mask
               description: "Exclusion mask for spectral background estimation"
-              entityName: Mask
+              entity_description: Mask
               location: settings.datasets.background.exclusion_mask.filename
         generation:
             - role: reduced_datasets
               description: "Datasets produced in the reduction process"
-              entityName: Datasets
+              entity_description: Datasets
               value: datasets
 # TODO handle name properties in gammapy
               has_members:
                   list: datasets
-                  entityName: Dataset
+                  entity_description: Dataset
                   id: name
 #                  id: __hash__().__abs__()
 #              has_progenitors:
-#                  entityName: Observations
+#                  entity_description: Observations
 #                  value: observations
 
 
@@ -147,21 +147,21 @@ activity_description:
               value: kwargs.filename
         usage:
             - role: model_file
-              entityName: YAMLFile
+              entity_description: YAMLFile
               location: kwargs.filename
             - role: reduced_datasets
               description: "Datasets produced in the reduction process"
-              entityName: Datasets
+              entity_description: Datasets
               value: datasets
         generation:
             - role: initial_model
               description: "Parametric composed model"
-              entityName: SkyModel
+              entity_description: SkyModel
               value: model
 #           TODO this is a derived dataset
             - role: datasets_with_initial_model
               description: "Datasets with initial model"
-              entityName: Datasets
+              entity_description: Datasets
               value: datasets
 
     run_fit:
@@ -176,26 +176,26 @@ activity_description:
         usage:
             - role: datasets
               description: "Datasets with initial model"
-              entityName: Datasets
+              entity_description: Datasets
               value: datasets
         generation:
             - role: fit_object
               description: "Object that stores fitting parameters"
-              entityName: Fit
+              entity_description: Fit
               value: fit
             - role: fit_result
               description: "Object that stores fitting results parameters"
-              entityName: FitResult
+              entity_description: FitResult
               value: fit_result
 #           TODO this is a derived model
             - role: fitted_model
               description: "Parametric composed model fitted on datasets"
-              entityName: SkyModel
+              entity_description: SkyModel
               value: model
 #           TODO this is a derived dataset
             - role: datasets_with_fitted_model
               description: "Datasets fitted to model"
-              entityName: Datasets
+              entity_description: Datasets
               value: datasets
 
     get_flux_points:
@@ -210,16 +210,16 @@ activity_description:
         usage:
             - role: datasets
               description: "Datasets with fitted model where to calculate the flux points"
-              entityName: Datasets
+              entity_description: Datasets
               value: datasets
             - role: fitted_model
               description: "Parametric composed model"
-              entityName: SkyModel
+              entity_description: SkyModel
               value: model
         generation:
             - role: flux_points_dataset
               description: "Calculated flux points dataset"
-              entityName: FluxPointsDataset
+              entity_description: FluxPointsDataset
               value: flux_points
 
 entity_description:

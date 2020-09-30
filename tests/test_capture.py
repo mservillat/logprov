@@ -11,67 +11,72 @@ provconfig = {
 }
 definitions_yaml = """
 activity_description:
-    function1:
-        description: "set initial value of object1"
+    regular_function:
+        description: "set initial value of global_var"
         parameters:
             - name: value
-              description: "initial value"
               value: kwargs.value
         generation:
-            - role: object1
-              description: "output object"
+            - role: global_var
               entity_description: Object
-              value: object1
-    function2:
-        description: "set value of object2 using object1"
+              value: global_var
+    set_var1:
+        description: "set initial value of var1"
         parameters:
             - name: value
-              description: "initial value"
               value: kwargs.value
+        generation:
+            - role: var1
+              entity_description: Object
+              value: var1
+    set_var2:
+        description: "set value of var2 using var1"
         usage:
-            - role: object1
-              description: "input object"
+            - role: var1
               entity_description: Object
-              value: object1
+              value: var1
+            - role: global_var
+              entity_description: Object
+              value: global_var
+            - role: local_var
+              entity_description: Object
+              value: local_var
         generation:
-            - role: object2
-              description: "output object"
+            - role: var2
               entity_description: Object
-              value: object2
-    write:
-        description: "write object1 and object2 in a text file"
+              value: var2
+    write_file:
+        description: "write var1 and var2 in a text file"
         parameters:
             - name: filename
-              description: "output file name"
               value: kwargs.filename
         usage:
-            - role: object1
+            - role: var1
               entity_description: Object
-              value: object1
-            - role: object2
+              value: var1
+            - role: var2
               entity_description: Object
-              value: object2
+              value: var2
         generation:
             - role: text file
               entity_description: File
               location: kwargs.filename
-    read:
-        description: "read object1 and object2 from a text file"
+    read_file:
+        description: "read var1 and var2 from a text file"
         parameters:
             - name: filename
-              description: "input file name"
               value: kwargs.filename
         usage:
             - role: text file
               entity_description: File
               location: kwargs.filename
         generation:
-            - role: object1
+            - role: var1
               entity_description: Object
-              value: object1
-            - role: object2
+              value: var1
+            - role: var2
               entity_description: Object
-              value: object2
+              value: var2
 entity_description:
     Object:
         description: "A Python variable in memory"
@@ -95,57 +100,71 @@ class Object(object):
         return str(self.value)
 
 
+global_var = Object()
+global_var.value = 100
+
+
+@prov_capture.trace
+def regular_function(value=100):
+    global_var.value = value
+    return global_var
+
+
 @prov_capture.trace_methods
 class Class1(object):
 
     def __init__(self):
-        self.object1 = Object()
-        self.object2 = Object()
+        self.var1 = Object()
+        self.var2 = Object()
 
     def __repr__(self):
         return "Class1"
 
-    def function1(self, value=0):
-        self.object1.value = value
-        return self.object1
+    def set_var1(self, value=0):
+        self.var1.value = value
+        return self.var1
 
-    def function2(self, value=0):
-        self.object2.value = self.object1.value + value
-        return self.object2
+    def set_var2(self):
+        local_var = Object()
+        local_var.value = 10
+        self.var2.value = self.var1.value + local_var.value + global_var.value
+        return self.var2
 
-    def function3(self, value=0):
-        self.object1.value = value
-        return self.object1
+    def untraced(self, value=0):
+        self.var1.value = value
+        return self.var1
 
-    def write(self, filename="prov_test.txt"):
+    def write_file(self, filename="prov_test.txt"):
         with open(filename, "w") as f:
-            f.write(f"A={self.object1} B={self.object2}")
+            f.write(f"A={self.var1} B={self.var2}")
 
-    def read(self, filename="prov_test.txt"):
+    def read_file(self, filename="prov_test.txt"):
         with open(filename, "r") as f:
             line = f.read()
         for item in line.split(" "):
             name, value = item.split("=")
             if name == "A":
-                self.object1.value = value
+                self.var1.value = value
             if name == "B":
-                self.object2.value = value
+                self.var2.value = value
 
 
 start = datetime.datetime.now().isoformat()
+regular_function()
 c1 = Class1()
-c1.function1(value=1)
-#c1.function1(value=2)
-#c1.function3(value=5)
-c1.function2(value=3)
-c1.object1.value = 5
+c1.set_var1(value=1)
+#c1.set_var1(value=2)
+#c1.untraced(value=5)
+c1.set_var2()
+c1.var1.value = 5
 #c1.function3(value=2)
-c1.function1(value=2)
-c1.function2(value=2)
-c1.write(filename="prov_test1.txt")
+c1.set_var1(value=2)
+c1.set_var2()
+c1.write_file(filename="prov_test1.txt")
 copyfile("prov_test1.txt", "prov_test2.txt")
-c1.read(filename="prov_test2.txt")
+c1.read_file(filename="prov_test2.txt")
 end = datetime.datetime.now().isoformat()
+print(start, "-->", end)
 
 logname = provconfig['log_filename']
 provlist = read_prov(logname=logname, start=start, end=end)
