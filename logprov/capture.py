@@ -310,7 +310,7 @@ class ProvCapture(object):
             # Try to find leaf in globals (no object_or_dict to explore)
             value = self.globals.get(leaf, None)
             if value:
-                self.logger.debug(f"Found {leaf} in globals: {value} (no object or dict to search)")
+                self.logger.debug(f"Found {leaf} in globals (no object or dict to search)")
             else:
                 self.logger.debug(f"Not found: {leaf} (no object or dict to search)")
             return value
@@ -318,7 +318,7 @@ class ProvCapture(object):
         if isinstance(object_or_dict, dict):
             value = object_or_dict.get(leaf, None)
             if value:
-                self.logger.debug(f"Found {leaf} in a dict: {value}")
+                self.logger.debug(f"Found {leaf} in a dict")
         # Get value of leaf in object
         elif isinstance(object_or_dict, object):
             if "(" in leaf:
@@ -339,7 +339,7 @@ class ProvCapture(object):
                 # leaf is an attribute
                 value = getattr(object_or_dict, leaf, None)
             if value:
-                self.logger.debug(f"Found {leaf} in an object: {value}")
+                self.logger.debug(f"Found {leaf} in an object")
         else:
             raise TypeError
         # Continue to explore branch
@@ -351,7 +351,7 @@ class ProvCapture(object):
             # Try to find leaf in globals (not found in object_or_dict)
             value = self.globals.get(leaf, None)
             if value:
-                self.logger.debug(f"Found {leaf} in globals: {value}")
+                self.logger.debug(f"Found {leaf} in globals")
             else:
                 self.logger.debug(f"Not found: {leaf}")
         return value

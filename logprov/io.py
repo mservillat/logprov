@@ -95,11 +95,14 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 # par.add_attributes({"prov:label": "WasConfiguredBy"})
                 # act.used(par, attributes={"prov:type": "Setup"})
                 for name, value in params.items():
+                    value_short = str(value)[:20]
+                    if len(value_short) == 20:
+                        value_short += "..."
                     par = pdoc.entity(act_id + "_" + name)
-                    par.add_attributes({"prov:label": name + " = " + str(value)})
+                    par.add_attributes({"prov:label": name + " = " + value_short})
                     par.add_attributes({"prov:type": "voprov:Parameter"})
                     par.add_attributes({"voprov:name": name})
-                    par.add_attributes({"prov:value": str(value)})
+                    par.add_attributes({"prov:value": value_short})
                     act.used(par, attributes={"prov:type": "Setup"})
             # usage
             if "used_id" in provdict:
@@ -155,7 +158,10 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
             if "type" in provdict:
                 ent.add_attributes({"prov:type": provdict.pop("type")})
             if "value" in provdict:
-                ent.add_attributes({"prov:value": str(provdict.pop("value"))})
+                value_short = str(provdict.pop("value"))[:20]
+                if len(value_short) == 20:
+                    value_short += "..."
+                ent.add_attributes({"prov:value": value_short})
             if "location" in provdict:
                 ent.add_attributes({"prov:location": str(provdict.pop("location"))})
             if "generated_time" in provdict:
