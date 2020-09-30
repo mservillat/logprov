@@ -90,6 +90,7 @@ agent:
 definitions = yaml.safe_load(definitions_yaml)
 
 prov_capture = logprov.capture.ProvCapture(definitions=definitions, config=provconfig)
+prov_capture.logger.setLevel("DEBUG")
 
 
 class Object(object):

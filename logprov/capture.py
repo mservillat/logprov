@@ -53,7 +53,7 @@ logging_default_config = {
     },
     'loggers': {
         'provLogger': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'handlers': ['provHandler'],
             'propagate': False,
         },
