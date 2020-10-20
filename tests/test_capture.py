@@ -89,7 +89,7 @@ agent:
 
 definitions = yaml.safe_load(definitions_yaml)
 
-prov_capture = logprov.capture.ProvCapture(definitions=definitions, config=provconfig)
+prov_capture = logprov.ProvCapture(definitions=definitions, config=provconfig)
 prov_capture.logger.setLevel("DEBUG")
 
 
@@ -107,6 +107,7 @@ global_var.value = 100
 
 @prov_capture.trace
 def regular_function(value=100):
+    print(f"regular_function(value={value})")
     global_var.value = value
     return global_var
 
@@ -115,6 +116,7 @@ def regular_function(value=100):
 class Class1(object):
 
     def __init__(self):
+        print(f"Class1.__init__()")
         self.var1 = Object()
         self.var2 = Object()
 
@@ -123,23 +125,28 @@ class Class1(object):
 
     def set_var1(self, value=0):
         self.var1.value = value
+        print(f"set_var1(value={value})")
         return self.var1
 
     def set_var2(self):
         local_var = Object()
         local_var.value = 10
         self.var2.value = self.var1.value + local_var.value + global_var.value
+        print(f"set_var2()")
         return self.var2
 
     def untraced(self, value=0):
         self.var1.value = value
+        print(f"untraced(value={value})")
         return self.var1
 
     def write_file(self, filename="prov_test.txt"):
+        print(f"write_file(filename={filename})")
         with open(filename, "w") as f:
             f.write(f"A={self.var1} B={self.var2}")
 
     def read_file(self, filename="prov_test.txt"):
+        print(f"read_file(filename={filename})")
         with open(filename, "r") as f:
             line = f.read()
         for item in line.split(" "):
@@ -155,7 +162,7 @@ regular_function()
 c1 = Class1()
 c1.set_var1(value=1)
 #c1.set_var1(value=2)
-#c1.untraced(value=5)
+c1.untraced(value=5)
 c1.set_var2()
 c1.var1.value = 5
 #c1.function3(value=2)
