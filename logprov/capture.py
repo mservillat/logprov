@@ -8,6 +8,7 @@ import logging.config
 import os
 import platform
 import sys
+import inspect
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -187,9 +188,12 @@ class ProvCapture(metaclass=Singleton):
             activity_id = self.get_activity_id()
             self.globals = {k: func.__globals__[k] for k in func.__globals__.keys() if k[0:1] is not '_'}
             # and k not in ['In', 'Out', 'exit', 'quit', 'provconfig', 'definitions_yaml', 'definitions']}
+            # TODO: use inspect.ismethod()
+            func_type = "func"
             if ("method" in str(type(func))) or (len(args) > 0 and hasattr(args[0], "__dict__")):
                 # func is a class method, search entities in class instance self (arg[0] of the method)
                 self.logger.debug(f"{activity} is a class method")
+                func_type = "method"
                 scope = args[0]
                 scope.args = args
                 scope.kwargs = kwargs
@@ -212,6 +216,11 @@ class ProvCapture(metaclass=Singleton):
             result = func(*args, **kwargs)
             end = datetime.datetime.now().isoformat()
 
+            if func_type == "func":
+                scope["_return"] = result
+            else:
+                scope._return = result
+
             # provenance capture after execution
             if log_active:
                 # rk: provenance logging only if activity ends properly
@@ -225,6 +234,7 @@ class ProvCapture(metaclass=Singleton):
                     self.log_prov_record(prov_record)
                 self.log_generation(scope, activity, activity_id)
                 self.log_finish_activity(activity_id, end)
+
             return result
 
         return wrapper
@@ -323,7 +333,7 @@ class ProvCapture(metaclass=Singleton):
             if value:
                 self.logger.debug(f"Found {leaf} in globals (no object or dict to search)")
             else:
-                self.logger.debug(f"Not found: {leaf} (no object or dict to search)")
+                self.logger.warning(f"Not found: {leaf} (no object or dict to search)")
             return value
         # Get value of leaf in dict
         if isinstance(scope, dict):
@@ -364,7 +374,7 @@ class ProvCapture(metaclass=Singleton):
             if value:
                 self.logger.debug(f"Found {leaf} in globals")
             else:
-                self.logger.debug(f"Not found: {leaf}")
+                self.logger.warning(f"Not found: {leaf}")
         return value
 
     def get_item_properties(self, scope, item_description):
@@ -543,7 +553,7 @@ class ProvCapture(metaclass=Singleton):
                 if "name" in parameter and "value" in parameter:
                     parameter_value = self.get_nested_value(scope, parameter["value"])
                     parameters[parameter["name"]] = parameter_value
-
+        # TODO: use inspect.signature() to include default kwargs (and args?)
         if parameters:
             prov_record = {
                 "activity_id": activity_id,
