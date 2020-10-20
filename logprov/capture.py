@@ -96,7 +96,18 @@ def read_definitions(filename):
 
 # Capture class
 
-class ProvCapture(object):
+class Singleton(type):
+    """" metaclass for singleton pattern """
+
+    instance = None
+
+    def __call__(cls, *args, **kw):
+        if not cls.instance:
+            cls.instance = super().__call__(*args, **kw)
+        return cls.instance
+
+
+class ProvCapture(metaclass=Singleton):
 
     def __init__(self, definitions=None, config=None):
         if config:
