@@ -143,6 +143,7 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
         # entity
         if "entity_id" in provdict:
             ent_id = str(provdict.pop("entity_id"))
+            label = ""
             if ":" not in ent_id:
                 ent_id = default_ns + ":" + "_".join([sess_id, ent_id])
             else:
@@ -154,7 +155,11 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 ent = pdoc.entity(ent_id)
                 records[ent_id] = ent
             if "name" in provdict:
-                ent.add_attributes({"prov:label": provdict.pop("name")})
+                label = provdict.pop("name")
+                ent.add_attributes({"voprov:name": label})
+            if "entity_description" in provdict:
+                label = provdict.pop("entity_description")
+                ent.add_attributes({"voprov:entity_description": label})
             if "type" in provdict:
                 ent.add_attributes({"prov:type": provdict.pop("type")})
             if "value" in provdict:
@@ -163,7 +168,12 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                     value_short += "..."
                 ent.add_attributes({"prov:value": value_short})
             if "location" in provdict:
-                ent.add_attributes({"prov:location": str(provdict.pop("location"))})
+                location = str(provdict.pop("location"))
+                ent.add_attributes({"prov:location": location})
+                if label:
+                    label = label + " in " + location
+            if label:
+                ent.add_attributes({"prov:label": label})
             if "generated_time" in provdict:
                 ent.add_attributes({"prov:generatedAtTime": str(provdict.pop("generated_time"))})
             # member
