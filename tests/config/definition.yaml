@@ -139,12 +139,10 @@ activity_description:
             "Read the model from dict or filename
             and attach it to datasets"
         parameters:
-            - name: model
+            - value: kwargs.model
               description: "Model description in YAML format as string"
-              value: kwargs.model
-            - name: filename
+            - value: kwargs.filename
               description: "Filename and path with the YAML model description"
-              value: kwargs.filename
         usage:
             - role: model_file
               entity_description: YAMLFile
@@ -170,9 +168,8 @@ activity_description:
             - name: fit_range
               description: "Energy range where to perform the fit"
               value: settings.fit.fit_range
-            - name: optimize_opts
+            - value: kwargs.optimize_opts
               description: "Options passed to `Fit.optimize`."
-              value: kwargs.optimize_opts
         usage:
             - role: datasets
               description: "Datasets with initial model"
@@ -201,9 +198,8 @@ activity_description:
     get_flux_points:
         description: "Calculate flux points"
         parameters:
-            - name: source
+            - value: kwargs.source
               description: "Source name parameter in the model component"
-              value: args.source
             - name: fp_binning
               description: "Energy binning"
               value: settings.flux-points.fp_binning
