@@ -126,6 +126,9 @@ class ProvCapture(metaclass=Singleton):
         for key in logprov_default_config:
             if key not in self.config:
                 self.config[key] = logprov_default_config[key]
+        self.log_all_args = True
+        self.log_all_kwargs = True
+        self.log_returned_result = True
         # Set logger
         self.logger = self.get_logger()
         if definitions:
@@ -189,11 +192,9 @@ class ProvCapture(metaclass=Singleton):
             self.globals = {k: func.__globals__[k] for k in func.__globals__.keys() if k[0:1] is not '_'}
             # and k not in ['In', 'Out', 'exit', 'quit', 'provconfig', 'definitions_yaml', 'definitions']}
             # TODO: use inspect.ismethod()
-            func_type = "func"
             if ("method" in str(type(func))) or (len(args) > 0 and hasattr(args[0], "__dict__")):
                 # func is a class method, search entities in class instance self (arg[0] of the method)
                 self.logger.debug(f"{activity} is a class method")
-                func_type = "method"
                 scope = args[0]
                 scope.args = args
                 scope.kwargs = kwargs
@@ -208,7 +209,8 @@ class ProvCapture(metaclass=Singleton):
             # provenance capture before execution
             if log_active:
                 derivation_records = self.get_derivation_records(scope, activity)
-                parameter_records = self.get_parameters_records(scope, activity, activity_id)
+                sig = inspect.signature(func)
+                parameter_records = self.get_parameters_records(scope, activity, activity_id, func_signature=sig)
                 usage_records = self.get_usage_records(scope, activity, activity_id)
 
             # activity execution
@@ -216,10 +218,6 @@ class ProvCapture(metaclass=Singleton):
             result = func(*args, **kwargs)
             end = datetime.datetime.now().isoformat()
 
-            if func_type == "func":
-                scope["_return"] = result
-            else:
-                scope._return = result
 
             # provenance capture after execution
             if log_active:
@@ -232,7 +230,7 @@ class ProvCapture(metaclass=Singleton):
                     self.log_prov_record(prov_record)
                 for prov_record in usage_records:
                     self.log_prov_record(prov_record)
-                self.log_generation(scope, activity, activity_id)
+                self.log_generation(scope, activity, activity_id, result=result)
                 self.log_finish_activity(activity_id, end)
 
             return result
@@ -541,7 +539,7 @@ class ProvCapture(metaclass=Singleton):
                 self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
         return records
 
-    def get_parameters_records(self, scope, activity, activity_id):
+    def get_parameters_records(self, scope, activity, activity_id, func_signature=None):
         """Get log records for parameters of the activity."""
         records = []
         parameter_list = []
@@ -551,10 +549,42 @@ class ProvCapture(metaclass=Singleton):
                 parameter_list = self.definitions["activity_description"][activity]["parameters"] or []
         if parameter_list:
             for parameter in parameter_list:
-                if "name" in parameter and "value" in parameter:
-                    parameter_value = self.get_nested_value(scope, parameter["value"])
-                    parameters[parameter["name"]] = parameter_value
+                if "value" in parameter:
+                    pvalue = self.get_nested_value(scope, parameter["value"])
+                    if pvalue is not None:
+                        pname = parameter.get("name", parameter["value"])
+                        parameters[pname] = pvalue
         # TODO: use inspect.signature() to include default kwargs (and args?)
+        sig_args = []
+        sig_kwargs = {}
+        if func_signature and (self.log_all_args or self.log_all_kwargs):
+            for pname, p in func_signature.parameters.items():
+                if pname == "self" or p.default == p.empty:
+                    sig_args.append(pname)
+                else:
+                    sig_kwargs[pname] = p.default
+        if self.log_all_args:
+            args = []
+            if hasattr(scope, "args"):
+                args = scope.args
+            elif "args" in scope:
+                args = scope["args"]
+            for i, pvalue in enumerate(args):
+                pname = f"args[{str(i)}]"
+                if len(sig_args) > i:
+                    pname = str(sig_args[i])
+                if pname != "self":
+                    parameters[pname] = pvalue
+        if self.log_all_kwargs:
+            kwargs = {}
+            if hasattr(scope, "kwargs"):
+                kwargs = scope.kwargs
+            elif "kwargs" in scope:
+                kwargs = scope["kwargs"]
+            for pname, pvalue in sig_kwargs.items():
+                if pname in kwargs:
+                    pvalue = kwargs[pname]
+                parameters["kwargs." + pname] = pvalue
         if parameters:
             prov_record = {
                 "activity_id": activity_id,
@@ -597,20 +627,60 @@ class ProvCapture(metaclass=Singleton):
                 records.append(prov_record)
         return records
 
-    def log_generation(self, scope, activity, activity_id):
+    def log_generation(self, scope, activity, activity_id, result=None):
         """Log generated entities."""
         generation_list = []
         if activity in self.definitions["activity_description"]:
             generation_list = self.definitions["activity_description"][activity]["generation"] or []
+        if self.log_returned_result and result:
+            entity_id = self.get_entity_id(result, {})
+            var_name = ""
+            modifier = 0
+            for var, tv_dict in self.traced_variables.items():
+                previous_ids = tv_dict["previous_ids"]
+                modifier = 0
+                if entity_id in previous_ids:
+                    var_name = var
+                    while entity_id in previous_ids:
+                        modifier += 1
+                        entity_id += 1
+                    self.logger.warning(f'id has already been taken by a variable'
+                                        f' ({var} {entity_id}): '
+                                        f'update modifier to {modifier}')
+                    previous_ids.append(entity_id)
+                    self.traced_variables[var] = {
+                        "last_id": entity_id,
+                        "previous_ids": previous_ids,
+                        "item_description": tv_dict["item_description"],
+                        "modifier": modifier,
+                    }
+            # Generation record
+            prov_record = {
+                "activity_id": activity_id,
+                "generated_id": entity_id,
+                "generated_role": "result",
+            }
+            # Entity record
+            prov_record_ent = {
+                "entity_id": entity_id,
+            }
+            if var_name:
+                prov_record_ent.update({"location": var_name})
+            if modifier:
+                prov_record_ent.update({"modifier": modifier})
+            self.log_prov_record(prov_record_ent)
+            self.log_prov_record(prov_record)
         for item_description in generation_list:
             props = self.get_item_properties(scope, item_description)
             if "id" in props:
                 entity_id = props.pop("id")
                 # Keep new entity as traced
+                modifier = 0
                 if "value" in item_description:
                     if item_description["value"] in self.traced_variables:
                         tv_dict = self.traced_variables[item_description["value"]]
-                        modifier = tv_dict["modifier"]
+                        entity_id -= tv_dict["modifier"]
+                        modifier = 0  # tv_dict["modifier"]  # try first to generate without modifier
                         previous_ids = tv_dict["previous_ids"]
                         while entity_id in previous_ids:
                             modifier += 1
