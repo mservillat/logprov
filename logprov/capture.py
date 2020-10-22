@@ -327,10 +327,11 @@ class ProvCapture(metaclass=Singleton):
         """Helper function that gets a specific value in a nested dictionary or class."""
         branch_list = branch.split(".")
         leaf = branch_list.pop(0)
+        value = None
         if not scope:
             # Try to find leaf in globals (no scope to explore)
             value = self.globals.get(leaf, None)
-            if value:
+            if value is not None:
                 self.logger.debug(f"Found {leaf} in globals (no object or dict to search)")
             else:
                 self.logger.warning(f"Not found: {leaf} (no object or dict to search)")
@@ -338,7 +339,7 @@ class ProvCapture(metaclass=Singleton):
         # Get value of leaf in dict
         if isinstance(scope, dict):
             value = scope.get(leaf, None)
-            if value:
+            if value is not None:
                 self.logger.debug(f"Found {leaf} in a dict")
         # Get value of leaf in object
         elif isinstance(scope, object):
@@ -359,7 +360,7 @@ class ProvCapture(metaclass=Singleton):
             else:
                 # leaf is an attribute
                 value = getattr(scope, leaf, None)
-            if value:
+            if value is not None:
                 self.logger.debug(f"Found {leaf} in an object")
         else:
             raise TypeError
@@ -368,10 +369,10 @@ class ProvCapture(metaclass=Singleton):
             branch_str = ".".join(branch_list)
             return self.get_nested_value(value, branch_str)
         # No more branch to explore
-        if not value:
+        if value is None:
             # Try to find leaf in globals (not found in scope)
             value = self.globals.get(leaf, None)
-            if value:
+            if value is not None:
                 self.logger.debug(f"Found {leaf} in globals")
             else:
                 self.logger.warning(f"Not found: {leaf}")
@@ -387,7 +388,7 @@ class ProvCapture(metaclass=Singleton):
             self.logger.warning(f"{repr(ex)} in {item_description}")
             ed_name = ""
             ed_type = ""
-        value = ""
+        value = None
         properties = {}
         # item has an id to be resolved
         if "id" in item_description:
@@ -403,7 +404,7 @@ class ProvCapture(metaclass=Singleton):
         if "value" in item_description:
             value = self.get_nested_value(scope, item_description["value"])
         # Copy location to value
-        if not value and "location" in properties:
+        if value is None and "location" in properties:
             value = properties["location"]
         # NOT USED - TO REMOVE
         if "overwrite" in item_description:
@@ -418,7 +419,7 @@ class ProvCapture(metaclass=Singleton):
                 except AttributeError as ex:
                     self.logger.warning(f"{repr(ex)} for {value}")
         # Get id from value if no id was found
-        if value and "id" not in properties:
+        if value is not None and "id" not in properties:
             properties["id"] = self.get_entity_id(value, item_description)
             # If File/FileCollection: keep hash and hash_type as properties
             if "File" in ed_type and properties["id"] != value:
@@ -426,7 +427,7 @@ class ProvCapture(metaclass=Singleton):
                 properties["hash"] = properties["id"]
                 properties["hash_type"] = method
         # If PythonObject: keep value as properties (-->ValueEntity)
-        if value and ed_type == "PythonObject":
+        if value is not None and ed_type == "PythonObject":
             properties["value"] = str(value)
         # Keep description attributes as properties
         if ed_name:
