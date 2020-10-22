@@ -355,6 +355,12 @@ class ProvCapture(metaclass=Singleton):
                     elif arg:
                         leaf_args.append(arg.replace('"', ""))
                 value = getattr(scope, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
+            elif "[" in leaf:
+                # leaf is list of dict
+                leaf_elements = leaf.replace("]", "").replace(" ", "").split("[")
+                leaf_index = int(leaf_elements.pop())
+                leaf_list = getattr(scope, leaf_elements.pop())
+                value = getattr(leaf_list, "__getitem__", lambda *args, **kwargs: None)(leaf_index)
             else:
                 # leaf is an attribute
                 value = getattr(scope, leaf, None)
