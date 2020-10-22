@@ -2,7 +2,7 @@
 #
 # Definition of ActivityDescription and EntityDescription
 #
-# activities:
+# activity_descriptions:
 #   <activity_name>:
 #     description:
 #     contact:
@@ -39,7 +39,7 @@
 #           id:
 #           namespace:
 #
-# entities:
+# entity_descriptions:
 #   <entity_name>:
 #     description:
 #     docurl:
@@ -52,19 +52,17 @@
 #     email:
 #
 
-activity_description:
+activity_descriptions:
 
     get_observations:
         description:
             "Fetch observations from the data store according
             to criteria defined in the configuration"
         parameters:
-            - name: datastore_path
+            - value: settings.observations.datastore
               description: "DataStore path as string"
-              value: settings.observations.datastore
-            - name: filters
+            - value: settings.observations.filters
               description: "Filter criteria to select observations"
-              value: settings.observations.filters
         usage:
             - role: datastore
               description: "DataStore object file"
@@ -85,30 +83,22 @@ activity_description:
     get_datasets:
         description: "Produce reduced datasets"
         parameters:
-            - name: stack-datasets
+            - value: settings.datasets.stack-datasets
               description: "Stack datasets flag"
-              value: settings.datasets.stack-datasets
-            - name: dataset-type
+            - value: settings.datasets.dataset-type
               description: "Datasets type"
-              value: settings.datasets.dataset-type
-            - name: geom
+            - value: settings.datasets.geom
               description: "Geometry parameters"
-              value: settings.datasets.geom
-            - name: geom-irf
+            - value: settings.datasets.geom-irf
               description: "Geometry parameters in IRFs"
-              value: settings.datasets.geom-irf
-            - name: background
+            - value: settings.datasets.background
               description: "Background parameters"
-              value: settings.datasets.background
-            - name: containment_correction
+            - value: settings.datasets.containment_correction
               description: "Containment_correction used in spectrum extraction"
-              value: settings.datasets.containment_correction
-            - name: offset-max
+            - value: settings.datasets.offset-max
               description: "Max offset to produce the dataset cutout"
-              value: settings.datasets.offset-max
-            - name: psf-kernel-radius
+            - value: settings.datasets.psf-kernel-radius
               description: "Radius of PSF kernel used"
-              value: settings.datasets.psf-kernel-radius
         usage:
             - role: observations_selected
               description: "Observations selected"
@@ -132,7 +122,6 @@ activity_description:
 #              has_progenitors:
 #                  entity_description: Observations
 #                  value: observations
-
 
     set_model:
         description:
@@ -165,9 +154,8 @@ activity_description:
     run_fit:
         description: "Fitting reduced data sets to model"
         parameters:
-            - name: fit_range
+            - value: settings.fit.fit_range
               description: "Energy range where to perform the fit"
-              value: settings.fit.fit_range
             - value: kwargs.optimize_opts
               description: "Options passed to `Fit.optimize`."
         usage:
@@ -200,9 +188,8 @@ activity_description:
         parameters:
             - value: kwargs.source
               description: "Source name parameter in the model component"
-            - name: fp_binning
+            - value: settings.flux-points.fp_binning
               description: "Energy binning"
-              value: settings.flux-points.fp_binning
         usage:
             - role: datasets
               description: "Datasets with fitted model where to calculate the flux points"
@@ -218,7 +205,7 @@ activity_description:
               entity_description: FluxPointsDataset
               value: flux_points
 
-entity_description:
+entity_descriptions:
     PythonObject:
         description: "A Python variable in memory"
         type: PythonObject

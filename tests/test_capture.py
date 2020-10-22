@@ -10,7 +10,7 @@ provconfig = {
     'log_filename': 'prov_test.log',
 }
 definitions_yaml = """
-activity_description:
+activity_descriptions:
     regular_function:
         description: "set initial value of global_var"
         parameters:
@@ -73,14 +73,14 @@ activity_description:
             - role: var2
               entity_description: Object
               value: var2
-entity_description:
+entity_descriptions:
     Object:
         description: "A Python variable in memory"
         type: PythonObject
     File:
         description: "A File on the disk"
         type: File
-agent:
+agents:
 """
 
 definitions = yaml.safe_load(definitions_yaml)

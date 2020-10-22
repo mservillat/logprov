@@ -14,7 +14,6 @@ from functools import wraps
 from pathlib import Path
 import psutil
 import yaml
-import inspect
 
 __all__ = ["read_config", "read_definitions", "ProvCapture"]
 
@@ -72,9 +71,9 @@ logprov_default_config = {
 }
 
 definitions_default = {
-    "activity_description": {},
-    "entity_description": {},
-    "agent": {},
+    "activity_descriptions": {},
+    "entity_descriptions": {},
+    "agents": {},
 }
 
 
@@ -160,7 +159,7 @@ class ProvCapture(metaclass=Singleton):
     def log_is_active(self, scope, activity):
         """Check if provenance option is enabled in configuration settings."""
         active = True
-        # if activity not in self.definitions["activity_description"].keys():
+        # if activity not in self.definitions["activity_descriptions"].keys():
         #     active = False
         if not scope:
             active = False
@@ -180,7 +179,7 @@ class ProvCapture(metaclass=Singleton):
     def trace(self, func):
         """A decorator which tracks provenance info."""
 
-        if func.__name__ not in self.definitions["activity_description"]:
+        if func.__name__ not in self.definitions["activity_descriptions"]:
             self.logger.warning(f'No definition for function {func.__name__}')
             # TODO: try to create a definition automatically (may not link used/wgb entities though...)
 
@@ -283,7 +282,7 @@ class ProvCapture(metaclass=Singleton):
         # Get entity description name and type
         try:
             ed_name = item_description["entity_description"]
-            ed_type = self.definitions["entity_description"][ed_name]["type"]
+            ed_type = self.definitions["entity_descriptions"][ed_name]["type"]
         except KeyError as ex:
             # self.logger.warning(f"{repr(ex)} in {item_description}")
             ed_name = ""
@@ -292,7 +291,7 @@ class ProvCapture(metaclass=Singleton):
         # If FileCollection: id = index file hash (value is the dir name)
         if ed_type == "FileCollection":
             filename = value
-            index = self.definitions["entity_description"][ed_name].get("index", "")
+            index = self.definitions["entity_descriptions"][ed_name].get("index", "")
             if Path(os.path.expandvars(value)).is_dir() and index:
                 filename = Path(value) / index
             return self.get_file_hash(filename)
@@ -387,7 +386,7 @@ class ProvCapture(metaclass=Singleton):
         # Get entity description name and type
         try:
             ed_name = item_description["entity_description"]
-            ed_type = self.definitions["entity_description"][ed_name]["type"]
+            ed_type = self.definitions["entity_descriptions"][ed_name]["type"]
         except Exception as ex:
             self.logger.warning(f"{repr(ex)} in {item_description}")
             ed_name = ""
@@ -437,8 +436,8 @@ class ProvCapture(metaclass=Singleton):
         if ed_name:
             properties["entity_description"] = ed_name
             for attr in ["type", "contentType"]:
-                if attr in self.definitions["entity_description"][ed_name]:
-                    properties[attr] = self.definitions["entity_description"][ed_name][attr]
+                if attr in self.definitions["entity_descriptions"][ed_name]:
+                    properties[attr] = self.definitions["entity_descriptions"][ed_name][attr]
         # Expand location to get absolute path
         if "location" in properties and properties["location"]:
             properties["location"] = os.path.expandvars(properties["location"])
@@ -552,9 +551,9 @@ class ProvCapture(metaclass=Singleton):
         records = []
         parameter_list = []
         parameters = {}
-        if activity in self.definitions["activity_description"]:
-            if "parameters" in self.definitions["activity_description"][activity]:
-                parameter_list = self.definitions["activity_description"][activity]["parameters"] or []
+        if activity in self.definitions["activity_descriptions"]:
+            if "parameters" in self.definitions["activity_descriptions"][activity]:
+                parameter_list = self.definitions["activity_descriptions"][activity]["parameters"] or []
         if parameter_list:
             for parameter in parameter_list:
                 if "value" in parameter:
@@ -580,8 +579,8 @@ class ProvCapture(metaclass=Singleton):
             for i, pvalue in enumerate(args):
                 pname = f"args[{str(i)}]"
                 if len(sig_args) > i:
-                    pname = str(sig_args[i])
-                if pname != "self":
+                    pname = "args." + str(sig_args[i])
+                if pname != "args.self":
                     parameters[pname] = pvalue
         if self.log_all_kwargs:
             kwargs = {}
@@ -605,9 +604,9 @@ class ProvCapture(metaclass=Singleton):
         """Get log records for each usage of the activity."""
         records = []
         usage_list = []
-        if activity in self.definitions["activity_description"]:
-            if "usage" in self.definitions["activity_description"][activity]:
-                usage_list = self.definitions["activity_description"][activity]["usage"] or []
+        if activity in self.definitions["activity_descriptions"]:
+            if "usage" in self.definitions["activity_descriptions"][activity]:
+                usage_list = self.definitions["activity_descriptions"][activity]["usage"] or []
         for item_description in usage_list:
             props = self.get_item_properties(scope, item_description)
             if "id" in props:
@@ -638,8 +637,8 @@ class ProvCapture(metaclass=Singleton):
     def log_generation(self, scope, activity, activity_id, result=None):
         """Log generated entities."""
         generation_list = []
-        if activity in self.definitions["activity_description"]:
-            generation_list = self.definitions["activity_description"][activity]["generation"] or []
+        if activity in self.definitions["activity_descriptions"]:
+            generation_list = self.definitions["activity_descriptions"][activity]["generation"] or []
         if self.log_returned_result and result:
             entity_id = self.get_entity_id(result, {})
             var_name = ""
