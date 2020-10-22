@@ -429,7 +429,7 @@ class ProvCapture(metaclass=Singleton):
             properties["value"] = str(value)
         # Keep description attributes as properties
         if ed_name:
-            properties["name"] = ed_name
+            properties["entity_description"] = ed_name
             for attr in ["type", "contentType"]:
                 if attr in self.definitions["entity_description"][ed_name]:
                     properties[attr] = self.definitions["entity_description"][ed_name][attr]
@@ -523,11 +523,13 @@ class ProvCapture(metaclass=Singleton):
                     "entity_id": new_id,
                 }
                 if "entity_description" in tv_dict["item_description"]:
-                    prov_record_ent.update({"name": tv_dict["item_description"]["entity_description"]})
+                    prov_record_ent.update({"entity_description": tv_dict["item_description"]["entity_description"]})
                 if "type" in tv_dict["item_description"]:
                     prov_record_ent.update({"type": tv_dict["item_description"]["type"]})
                 if "value" in tv_dict["item_description"]:
-                    prov_record_ent.update({"variable_name": tv_dict["item_description"]["value"]})
+                    prov_record_ent.update({"location": tv_dict["item_description"]["value"]})
+                if modifier:
+                    prov_record_ent.update({"modifier": modifier})
                 records.append(prov_record_ent)
                 # Derivation record
                 prov_record = {
@@ -618,9 +620,9 @@ class ProvCapture(metaclass=Singleton):
                     "entity_id": entity_id,
                 }
                 if "entity_description" in item_description:
-                    prov_record_ent.update({"name": item_description["entity_description"]})
+                    prov_record_ent.update({"entity_description": item_description["entity_description"]})
                 if "value" in item_description:
-                    prov_record_ent.update({"variable_name": item_description["value"]})
+                    prov_record_ent.update({"location": item_description["value"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 records.append(prov_record_ent)
@@ -712,9 +714,11 @@ class ProvCapture(metaclass=Singleton):
                     "entity_id": entity_id,
                 }
                 if "entity_description" in item_description:
-                    prov_record_ent.update({"name": item_description["entity_description"]})
+                    prov_record_ent.update({"entity_description": item_description["entity_description"]})
                 if "value" in item_description:
-                    prov_record_ent.update({"variable_name": item_description["value"]})
+                    prov_record_ent.update({"location": item_description["value"]})
+                if modifier:
+                    prov_record_ent.update({"modifier": modifier})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 self.log_prov_record(prov_record_ent)
@@ -744,7 +748,7 @@ class ProvCapture(metaclass=Singleton):
                     "entity_id": mem_id,
                 }
                 if "entity_description" in subitem:
-                    prov_record_ent.update({"name": subitem["entity_description"]})
+                    prov_record_ent.update({"entity_description": subitem["entity_description"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
                 self.log_prov_record(prov_record_ent)
@@ -784,7 +788,7 @@ class ProvCapture(metaclass=Singleton):
             entity_id = self.get_entity_id(file_path, item_description)
             prov_record = {
                 "entity_id": entity_id,
-                "name": entity_description,
+                "entity_description": entity_description,
                 "location": file_path,
                 "hash": entity_id,
                 "hash_type": self.config["hash_type"],
