@@ -14,8 +14,7 @@ activity_description:
     regular_function:
         description: "set initial value of global_var"
         parameters:
-            - name: value
-              value: kwargs.value
+            - value: kwargs.value
         generation:
             - role: global_var
               entity_description: Object
@@ -23,8 +22,7 @@ activity_description:
     set_var1:
         description: "set initial value of var1"
         parameters:
-            - name: value
-              value: kwargs.value
+            - value: kwargs.value
         generation:
             - role: var1
               entity_description: Object
@@ -48,8 +46,7 @@ activity_description:
     write_file:
         description: "write var1 and var2 in a text file"
         parameters:
-            - name: filename
-              value: kwargs.filename
+            - value: kwargs.filename
         usage:
             - role: var1
               entity_description: Object
@@ -64,8 +61,7 @@ activity_description:
     read_file:
         description: "read var1 and var2 from a text file"
         parameters:
-            - name: filename
-              value: kwargs.filename
+            - value: kwargs.filename
         usage:
             - role: text file
               entity_description: File
@@ -128,11 +124,11 @@ class Class1(object):
         print(f"set_var1(value={value})")
         return self.var1
 
-    def set_var2(self):
+    def set_var2(self, add_to_value):
         local_var = Object()
         local_var.value = 10
-        self.var2.value = self.var1.value + local_var.value + global_var.value
-        print(f"set_var2()")
+        self.var2.value = self.var1.value + local_var.value + global_var.value + add_to_value
+        print(f"set_var2({add_to_value})")
         return self.var2
 
     def untraced(self, value=0):
@@ -162,12 +158,11 @@ regular_function()
 c1 = Class1()
 c1.set_var1(value=1)
 #c1.set_var1(value=2)
-c1.untraced(value=5)
-c1.set_var2()
+c1.untraced(value=1)
+c1.set_var2(0)
 c1.var1.value = 5
-#c1.function3(value=2)
-c1.set_var1(value=2)
-c1.set_var2()
+c1.set_var1()
+c1.set_var2(2)
 c1.write_file(filename="prov_test1.txt")
 copyfile("prov_test1.txt", "prov_test2.txt")
 c1.read_file(filename="prov_test2.txt")
