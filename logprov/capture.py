@@ -66,6 +66,9 @@ logprov_default_config = {
     'capture': True,
     'hash_type': 'sha1',
     'log_filename': 'prov.log',
+    'log_all_args': True,
+    'log_all_kwargs': True,
+    'log_returned_result': True,
     'system_dict': {},
     'env_vars': {},
 }
@@ -109,7 +112,7 @@ class Singleton(type):
 
 class ProvCapture(metaclass=Singleton):
 
-    def __init__(self, definitions=None, config=None):
+    def __init__(self, definitions=None, config=None, get_file_id_func=None):
         if config:
             self.config = config
         else:
@@ -125,9 +128,10 @@ class ProvCapture(metaclass=Singleton):
         for key in logprov_default_config:
             if key not in self.config:
                 self.config[key] = logprov_default_config[key]
-        self.log_all_args = True
-        self.log_all_kwargs = True
-        self.log_returned_result = True
+        self.log_all_args = self.config['log_all_args']
+        self.log_all_kwargs = self.config['log_all_kwargs']
+        self.log_returned_result = self.config['log_returned_result']
+        self.get_file_id_func = get_file_id_func
         # Set logger
         self.logger = self.get_logger()
         if definitions:
@@ -217,7 +221,6 @@ class ProvCapture(metaclass=Singleton):
             result = func(*args, **kwargs)
             end = datetime.datetime.now().isoformat()
 
-
             # provenance capture after execution
             if log_active:
                 # rk: provenance logging only if activity ends properly
@@ -294,9 +297,15 @@ class ProvCapture(metaclass=Singleton):
             index = self.definitions["entity_descriptions"][ed_name].get("index", "")
             if Path(os.path.expandvars(value)).is_dir() and index:
                 filename = Path(value) / index
+            if self.get_file_id_func:
+                # use external function if defined
+                return self.get_file_id_func(value)
             return self.get_file_hash(filename)
         # If File: id = file hash  (value is the file name)
         if ed_type == "File":
+            if self.get_file_id_func:
+                # use external function if defined
+                return self.get_file_id_func(value)
             return self.get_file_hash(value)
         # entity is not a File (so must be a PythonObject)
         try:
