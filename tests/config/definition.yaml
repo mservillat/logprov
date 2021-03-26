@@ -265,3 +265,6 @@ entity_descriptions:
         description: "A YAML File on the disk"
         type: File
         contentType: application/x-yaml
+
+namespaces:
+  gamma-events: http://localhost/
