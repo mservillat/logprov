@@ -648,9 +648,11 @@ class ProvCapture(metaclass=Singleton):
         generation_list = []
         if activity in self.definitions["activity_descriptions"]:
             generation_list = self.definitions["activity_descriptions"][activity]["generation"] or []
+        returned_entity_id = None
+        returned_entity_modifier = 0
+        var_name = ""
         if self.log_returned_result and result:
             entity_id = self.get_entity_id(result, {})
-            var_name = ""
             modifier = 0
             for var, tv_dict in self.traced_variables.items():
                 previous_ids = tv_dict["previous_ids"]
@@ -670,22 +672,9 @@ class ProvCapture(metaclass=Singleton):
                         "item_description": tv_dict["item_description"],
                         "modifier": modifier,
                     }
-            # Generation record
-            prov_record = {
-                "activity_id": activity_id,
-                "generated_id": entity_id,
-                "generated_role": "result",
-            }
-            # Entity record
-            prov_record_ent = {
-                "entity_id": entity_id,
-            }
-            if var_name:
-                prov_record_ent.update({"location": var_name})
-            if modifier:
-                prov_record_ent.update({"modifier": modifier})
-            self.log_prov_record(prov_record_ent)
-            self.log_prov_record(prov_record)
+            returned_entity_id = entity_id
+            returned_entity_modifier = modifier
+        log_returned_entity = True
         for item_description in generation_list:
             props = self.get_item_properties(scope, item_description)
             if "id" in props:
@@ -714,6 +703,8 @@ class ProvCapture(metaclass=Singleton):
                         "item_description": item_description,
                         "modifier": modifier,
                     }
+                if entity_id == returned_entity_id:
+                    log_returned_entity = False
                 if "namespace" in props:
                     entity_id = props.pop("namespace") + ":" + entity_id
                 # Generation record
@@ -741,6 +732,24 @@ class ProvCapture(metaclass=Singleton):
                     self.log_members(entity_id, item_description["has_members"], scope)
                 if "has_progenitors" in item_description:
                     self.log_progenitors(entity_id, item_description["has_progenitors"], scope)
+        if self.log_returned_result and result and log_returned_entity:
+            # The detected returned entity was not yet logged, add a generic generation
+            # Generation record
+            prov_record = {
+                "activity_id": activity_id,
+                "generated_id": returned_entity_id,
+                "generated_role": "result",
+            }
+            # Entity record
+            prov_record_ent = {
+                "entity_id": returned_entity_id,
+            }
+            if var_name:
+                prov_record_ent.update({"location": var_name})
+            if modifier:
+                prov_record_ent.update({"modifier": returned_entity_modifier})
+            self.log_prov_record(prov_record_ent)
+            self.log_prov_record(prov_record)
 
     def log_members(self, entity_id, subitem, scope):
         """Log members of and entity."""

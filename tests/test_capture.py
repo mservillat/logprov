@@ -8,6 +8,9 @@ provconfig = {
     'capture': True,
     'hash_type': 'sha1',
     'log_filename': 'prov_test.log',
+    'log_all_args': True,
+    'log_all_kwargs': True,
+    'log_returned_result': True,
 }
 definitions_yaml = """
 activity_descriptions:
@@ -86,6 +89,7 @@ agents:
 definitions = yaml.safe_load(definitions_yaml)
 
 prov_capture = logprov.ProvCapture(definitions=definitions, config=provconfig)
+prov_capture.traced_variables = {}
 prov_capture.logger.setLevel("DEBUG")
 
 
@@ -159,10 +163,10 @@ c1 = Class1()
 c1.set_var1(value=1)
 #c1.set_var1(value=2)
 c1.untraced(value=1)
-c1.set_var2(0)
 c1.var1.value = 5
+c1.set_var2(0)
 c1.set_var1()
-c1.set_var2(2)
+#c1.set_var2(2)
 c1.write_file(filename="prov_test1.txt")
 copyfile("prov_test1.txt", "prov_test2.txt")
 c1.read_file(filename="prov_test2.txt")
