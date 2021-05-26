@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="logprov",
-    version="0.0.1",
+    version="0.0.2",
     author="Mathieu Servillat & Jose Enrique Ruiz",
     author_email="mathieu.servillat@obspm.fr, jer@iaa.es",
     description="capture of provenance information into structured logs",
