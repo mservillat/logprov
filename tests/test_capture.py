@@ -9,9 +9,11 @@ provconfig = {
     'hash_type': 'sha1',
     'log_filename': 'prov_test.log',
     'log_all_args': True,
+    'log_args_as_entities': True,
     'log_all_kwargs': True,
     'log_returned_result': True,
 }
+
 definitions_yaml = """
 activity_descriptions:
     regular_function:
@@ -20,7 +22,7 @@ activity_descriptions:
             - value: kwargs.value
         generation:
             - role: global_var
-              entity_description: Object
+              entity_description: MyObject
               value: global_var
     set_var1:
         description: "set initial value of var1"
@@ -28,23 +30,23 @@ activity_descriptions:
             - value: kwargs.value
         generation:
             - role: var1
-              entity_description: Object
+              entity_description: MyObject
               value: var1
     set_var2:
         description: "set value of var2 using var1"
         usage:
             - role: var1
-              entity_description: Object
+              entity_description: MyObject
               value: var1
             - role: global_var
-              entity_description: Object
+              entity_description: MyObject
               value: global_var
             - role: local_var
-              entity_description: Object
+              entity_description: MyObject
               value: local_var
         generation:
             - role: var2
-              entity_description: Object
+              entity_description: MyObject
               value: var2
     write_file:
         description: "write var1 and var2 in a text file"
@@ -52,15 +54,16 @@ activity_descriptions:
             - value: kwargs.filename
         usage:
             - role: var1
-              entity_description: Object
+              entity_description: MyObject
               value: var1
             - role: var2
-              entity_description: Object
+              entity_description: MyObject
               value: var2
         generation:
             - role: text file
               entity_description: File
               location: kwargs.filename
+              namespace: "file"
     read_file:
         description: "read var1 and var2 from a text file"
         parameters:
@@ -69,15 +72,16 @@ activity_descriptions:
             - role: text file
               entity_description: File
               location: kwargs.filename
+              namespace: "file"
         generation:
             - role: var1
-              entity_description: Object
+              entity_description: MyObject
               value: var1
             - role: var2
-              entity_description: Object
+              entity_description: MyObject
               value: var2
 entity_descriptions:
-    Object:
+    MyObject:
         description: "A Python variable in memory"
         type: PythonObject
     File:
@@ -87,13 +91,14 @@ agents:
 """
 
 definitions = yaml.safe_load(definitions_yaml)
+# definitions = logprov.capture.definitions_default
 
 prov_capture = logprov.ProvCapture(definitions=definitions, config=provconfig)
 prov_capture.traced_variables = {}
 prov_capture.logger.setLevel("DEBUG")
 
 
-class Object(object):
+class MyObject(object):
 
     value = 0
 
@@ -101,7 +106,7 @@ class Object(object):
         return str(self.value)
 
 
-global_var = Object()
+global_var = MyObject()
 global_var.value = 100
 
 
@@ -117,8 +122,8 @@ class Class1(object):
 
     def __init__(self):
         print(f"Class1.__init__()")
-        self.var1 = Object()
-        self.var2 = Object()
+        self.var1 = MyObject()
+        self.var2 = MyObject()
 
     def __repr__(self):
         return "Class1"
@@ -128,8 +133,8 @@ class Class1(object):
         print(f"set_var1(value={value})")
         return self.var1
 
-    def set_var2(self, add_to_value):
-        local_var = Object()
+    def set_var2(self, var1, gvar, add_to_value=0):
+        local_var = MyObject()
         local_var.value = 10
         self.var2.value = self.var1.value + local_var.value + global_var.value + add_to_value
         print(f"set_var2({add_to_value})")
@@ -152,24 +157,25 @@ class Class1(object):
         for item in line.split(" "):
             name, value = item.split("=")
             if name == "A":
-                self.var1.value = value
+                self.var1.value = int(value)
             if name == "B":
-                self.var2.value = value
+                self.var2.value = int(value)
 
 
 start = datetime.datetime.now().isoformat()
-regular_function()
+#regular_function()
 c1 = Class1()
 c1.set_var1(value=1)
 #c1.set_var1(value=2)
-c1.untraced(value=1)
-c1.var1.value = 5
-c1.set_var2(0)
+#c1.untraced(value=1)
+#c1.var1.value = 5
+#c1.set_var2(0)
 c1.set_var1()
-#c1.set_var2(2)
+c1.set_var2(c1.var1, global_var, add_to_value=2)
 c1.write_file(filename="prov_test1.txt")
 copyfile("prov_test1.txt", "prov_test2.txt")
 c1.read_file(filename="prov_test2.txt")
+c1.set_var2(c1.var1, global_var, add_to_value=2)
 end = datetime.datetime.now().isoformat()
 print(start, "-->", end)
 
