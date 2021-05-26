@@ -66,8 +66,9 @@ logprov_default_config = {
     'capture': True,
     'hash_type': 'sha1',
     'log_filename': 'prov.log',
-    'log_all_args': True,
-    'log_all_kwargs': True,
+    'log_args': True,
+    'log_args_as_entities': True,
+    'log_kwargs': True,
     'log_returned_result': True,
     'system_dict': {},
     'env_vars': {},
@@ -128,9 +129,6 @@ class ProvCapture(metaclass=Singleton):
         for key in logprov_default_config:
             if key not in self.config:
                 self.config[key] = logprov_default_config[key]
-        self.log_all_args = self.config['log_all_args']
-        self.log_all_kwargs = self.config['log_all_kwargs']
-        self.log_returned_result = self.config['log_returned_result']
         self.get_file_id_func = get_file_id_func
         # Set logger
         self.logger = self.get_logger()
@@ -141,6 +139,8 @@ class ProvCapture(metaclass=Singleton):
         # global variables
         self.sessions = []
         self.traced_variables = {}
+        self.traced_returned_results = {}
+        self.usage_ids = []
         self.globals = {}
 
     # Logger configuration
@@ -174,7 +174,7 @@ class ProvCapture(metaclass=Singleton):
     # Decorators
 
     def trace_methods(self, cls):
-        """A function decorator which decorates the methods with trace function."""
+        """A function decorator which decorates all methods with the trace() function."""
         for attr in cls.__dict__:
             if not attr.startswith('_') and callable(getattr(cls, attr)):
                 setattr(cls, attr, self.trace(getattr(cls, attr)))
@@ -191,7 +191,7 @@ class ProvCapture(metaclass=Singleton):
         def wrapper(*args, **kwargs):
 
             activity = func.__name__
-            activity_id = self.get_activity_id()
+            activity_id = self.gen_activity_id()
             self.globals = {k: func.__globals__[k] for k in func.__globals__.keys() if k[0:1] is not '_'}
             # and k not in ['In', 'Out', 'exit', 'quit', 'provconfig', 'definitions_yaml', 'definitions']}
             # TODO: use inspect.ismethod()
@@ -213,8 +213,8 @@ class ProvCapture(metaclass=Singleton):
             if log_active:
                 derivation_records = self.get_derivation_records(scope, activity)
                 sig = inspect.signature(func)
-                parameter_records = self.get_parameters_records(scope, activity, activity_id, func_signature=sig)
                 usage_records = self.get_usage_records(scope, activity, activity_id)
+                parameter_records = self.get_parameters_records(scope, activity, activity_id, func_signature=sig)
 
             # activity execution
             start = datetime.datetime.now().isoformat()
@@ -242,7 +242,7 @@ class ProvCapture(metaclass=Singleton):
     # ID management
 
     @staticmethod
-    def get_activity_id():
+    def gen_activity_id():
         # uuid example: ea5caa9f-0a76-42f5-a1a7-43752df755f0
         # uuid[-12:]: 43752df755f0
         # uuid[-6:]: f755f0
@@ -280,15 +280,15 @@ class ProvCapture(metaclass=Singleton):
             self.logger.warning(f"File entity {path} not found")
             return path
 
-    def get_entity_id(self, value, item_description):
-        """Helper function that makes the id of an entity, depending on its type."""
+    def get_entity_id(self, value, item_description, var_name=""):
+        """Helper function that guesses the id of an entity, depending on its type."""
         # Get entity description name and type
         try:
             ed_name = item_description["entity_description"]
             ed_type = self.definitions["entity_descriptions"][ed_name]["type"]
         except KeyError as ex:
             # self.logger.warning(f"{repr(ex)} in {item_description}")
-            ed_name = ""
+            ed_name = var_name
             ed_type = ""
         # TODO: add list of ed_name + function to get id
         # If FileCollection: id = index file hash (value is the dir name)
@@ -309,7 +309,8 @@ class ProvCapture(metaclass=Singleton):
             return self.get_file_hash(value)
         # entity is not a File (so must be a PythonObject)
         try:
-            entity_id = abs(hash(value) + hash(str(value)))
+            # id is defined as the hash of value (hash of the variable) plus the hash of its representation
+            entity_id = (abs(hash(value) + hash(str(value)))) * 10
             # Add modifier for traced variables
             if "value" in item_description:
                 if item_description["value"] in self.traced_variables:
@@ -322,7 +323,7 @@ class ProvCapture(metaclass=Singleton):
             # value may not have a hash()... then use id()
             # however, two different objects may use the same memory address
             # so add hash(ed_name) to avoid issues
-            entity_id = abs(id(value) + hash(ed_name))
+            entity_id = (abs(id(value) + hash(ed_name))) * 10
             # Add modifier for traced variables
             if "value" in item_description:
                 if item_description["value"] in self.traced_variables:
@@ -364,7 +365,7 @@ class ProvCapture(metaclass=Singleton):
                         leaf_args.append(arg.replace('"', ""))
                 value = getattr(scope, leaf_func, lambda *args, **kwargs: None)(*leaf_args, **leaf_kwargs)
             elif "[" in leaf:
-                # leaf is list of dict
+                # leaf is list or dict
                 leaf_elements = leaf.replace("]", "").replace(" ", "").split("[")
                 leaf_index = int(leaf_elements.pop())
                 leaf_list = getattr(scope, leaf_elements.pop())
@@ -404,11 +405,7 @@ class ProvCapture(metaclass=Singleton):
         properties = {}
         # item has an id to be resolved
         if "id" in item_description:
-            item_id = str(self.get_nested_value(scope, item_description["id"]))
-            item_ns = item_description.get("namespace", None)
-            if item_ns:
-                item_id = f"{item_ns}:{item_id}"
-            properties["id"] = item_id
+            properties["id"] = str(self.get_nested_value(scope, item_description["id"]))
         # item has a location to be resolved
         if "location" in item_description:
             properties["location"] = self.get_nested_value(scope, item_description["location"])
@@ -418,18 +415,6 @@ class ProvCapture(metaclass=Singleton):
         # Copy location to value
         if value is None and "location" in properties:
             value = properties["location"]
-        # NOT USED - TO REMOVE
-        if "overwrite" in item_description:
-            # Add or increment entity_version to make value a different entity
-            if hasattr(value, "entity_version"):
-                version = getattr(value, "entity_version")
-                version += 1
-                setattr(value, "entity_version", version)
-            else:
-                try:
-                    setattr(value, "entity_version", 1)
-                except AttributeError as ex:
-                    self.logger.warning(f"{repr(ex)} for {value}")
         # Get id from value if no id was found
         if value is not None and "id" not in properties:
             properties["id"] = self.get_entity_id(value, item_description)
@@ -438,6 +423,12 @@ class ProvCapture(metaclass=Singleton):
                 method = self.get_hash_method()
                 properties["hash"] = properties["id"]
                 properties["hash_type"] = method
+        # Add namespace if not already done
+        if "namespace" in item_description:
+            item_id = properties["id"]
+            item_ns = item_description["namespace"]
+            if ":" not in item_id:
+                properties["id"] = f"{item_ns}:{item_id}"
         # If PythonObject: keep value as properties (-->ValueEntity)
         if value is not None and ed_type == "PythonObject":
             properties["value"] = str(value)
@@ -513,46 +504,47 @@ class ProvCapture(metaclass=Singleton):
         """Get log records for potentially derived entity."""
         records = []
         for var, tv_dict in self.traced_variables.items():
-            entity_id = tv_dict["last_id"]
-            value = self.get_nested_value(scope, var)
-            new_id = self.get_entity_id(value, tv_dict["item_description"])
-            if new_id != entity_id:
-                modifier = tv_dict["modifier"]
-                previous_ids = tv_dict["previous_ids"]
-                while new_id in previous_ids:
-                    modifier += 1
-                    new_id += 1
-                    self.logger.warning(f'id has already been taken by this variable'
-                                        f' ({var} {entity_id}): '
-                                        f'update modifier to {modifier}')
-                previous_ids.append(new_id)
-                self.traced_variables[var] = {
-                    "last_id": new_id,
-                    "previous_ids": previous_ids,
-                    "item_description": tv_dict["item_description"],
-                    "modifier": modifier,
-                }
-                # Entity record
-                prov_record_ent = {
-                    "entity_id": new_id,
-                }
-                if "entity_description" in tv_dict["item_description"]:
-                    prov_record_ent.update({"entity_description": tv_dict["item_description"]["entity_description"]})
-                if "type" in tv_dict["item_description"]:
-                    prov_record_ent.update({"type": tv_dict["item_description"]["type"]})
-                if "value" in tv_dict["item_description"]:
-                    prov_record_ent.update({"location": tv_dict["item_description"]["value"]})
-                if modifier:
-                    prov_record_ent.update({"modifier": modifier})
-                records.append(prov_record_ent)
-                # Derivation record
-                prov_record = {
-                    "entity_id": new_id,
-                    "progenitor_id": entity_id,
-                    "generated_time": datetime.datetime.now().isoformat(),
-                }
-                records.append(prov_record)
-                self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
+            if var != "_returned_result":
+                entity_id = tv_dict["last_id"]
+                value = self.get_nested_value(scope, var)
+                new_id = self.get_entity_id(value, tv_dict["item_description"])
+                if new_id != entity_id:
+                    modifier = tv_dict["modifier"]
+                    previous_ids = tv_dict["previous_ids"]
+                    while new_id in previous_ids:
+                        modifier += 1
+                        new_id += 1
+                        self.logger.warning(f'id has already been taken by this variable'
+                                            f' ({var} {entity_id}): '
+                                            f'update modifier to {modifier}')
+                    previous_ids.append(new_id)
+                    self.traced_variables[var] = {
+                        "last_id": new_id,
+                        "previous_ids": previous_ids,
+                        "item_description": tv_dict["item_description"],
+                        "modifier": modifier,
+                    }
+                    # Entity record
+                    prov_record_ent = {
+                        "entity_id": new_id,
+                    }
+                    if "entity_description" in tv_dict["item_description"]:
+                        prov_record_ent.update({"entity_description": tv_dict["item_description"]["entity_description"]})
+                    if "type" in tv_dict["item_description"]:
+                        prov_record_ent.update({"type": tv_dict["item_description"]["type"]})
+                    if "value" in tv_dict["item_description"]:
+                        prov_record_ent.update({"location": tv_dict["item_description"]["value"]})
+                    if modifier:
+                        prov_record_ent.update({"modifier": modifier})
+                    records.append(prov_record_ent)
+                    # Derivation record
+                    prov_record = {
+                        "entity_id": new_id,
+                        "progenitor_id": entity_id,
+                        "generated_time": datetime.datetime.now().isoformat(),
+                    }
+                    records.append(prov_record)
+                    self.logger.warning(f"Derivation detected by {activity} for {var}. ID: {new_id}")
         return records
 
     def get_parameters_records(self, scope, activity, activity_id, func_signature=None):
@@ -570,28 +562,42 @@ class ProvCapture(metaclass=Singleton):
                     if pvalue is not None:
                         pname = parameter.get("name", parameter["value"])
                         parameters[pname] = pvalue
-        # TODO: use inspect.signature() to include default kwargs (and args?)
         sig_args = []
         sig_kwargs = {}
-        if func_signature and (self.log_all_args or self.log_all_kwargs):
+        if func_signature and (self.config['log_args'] or self.config['log_kwargs']):
             for pname, p in func_signature.parameters.items():
                 if pname == "self" or p.default == p.empty:
                     sig_args.append(pname)
                 else:
                     sig_kwargs[pname] = p.default
-        if self.log_all_args:
+        if self.config['log_args']:
             args = []
+            # Get args in scope
             if hasattr(scope, "args"):
                 args = scope.args
             elif "args" in scope:
                 args = scope["args"]
             for i, pvalue in enumerate(args):
                 pname = f"args[{str(i)}]"
+                # Get name of arg from signature
                 if len(sig_args) > i:
                     pname = "args." + str(sig_args[i])
                 if pname != "args.self":
-                    parameters[pname] = pvalue
-        if self.log_all_kwargs:
+                    if self.config['log_args_as_entities']:
+                        # Get id
+                        var_name = pname.split("args.")[-1]
+                        entity_id = self.get_entity_id(pvalue, {}, var_name=var_name)
+                        if entity_id not in self.usage_ids:
+                            # Usage record
+                            prov_record = {
+                                "activity_id": activity_id,
+                                "used_id": entity_id,
+                                "used_role": var_name,
+                            }
+                            records.append(prov_record)
+                    else:
+                        parameters[pname] = pvalue
+        if self.config['log_kwargs']:
             kwargs = {}
             if hasattr(scope, "kwargs"):
                 kwargs = scope.kwargs
@@ -610,12 +616,13 @@ class ProvCapture(metaclass=Singleton):
         return records
 
     def get_usage_records(self, scope, activity, activity_id):
-        """Get log records for each usage of the activity."""
+        """Get log records for each usage of the activity given in the definitions."""
         records = []
         usage_list = []
         if activity in self.definitions["activity_descriptions"]:
             if "usage" in self.definitions["activity_descriptions"][activity]:
                 usage_list = self.definitions["activity_descriptions"][activity]["usage"] or []
+        self.usage_ids = []
         for item_description in usage_list:
             props = self.get_item_properties(scope, item_description)
             if "id" in props:
@@ -623,23 +630,24 @@ class ProvCapture(metaclass=Singleton):
                 if "namespace" in props:
                     entity_id = props.pop("namespace") + ":" + entity_id
                 # Usage record
+                self.usage_ids.append(entity_id)
                 prov_record = {
                     "activity_id": activity_id,
                     "used_id": entity_id,
                 }
                 if "role" in item_description:
                     prov_record.update({"used_role": item_description["role"]})
-                # Entity record
-                prov_record_ent = {
-                    "entity_id": entity_id,
-                }
+                # Entity record (if not just the id)
+                prov_record_ent = {}
                 if "entity_description" in item_description:
                     prov_record_ent.update({"entity_description": item_description["entity_description"]})
                 if "value" in item_description:
                     prov_record_ent.update({"location": item_description["value"]})
                 for prop in props:
                     prov_record_ent.update({prop: props[prop]})
-                records.append(prov_record_ent)
+                if prov_record_ent:
+                    prov_record_ent.update({entity_id: entity_id})
+                    records.append(prov_record_ent)
                 records.append(prov_record)
         return records
 
@@ -651,14 +659,18 @@ class ProvCapture(metaclass=Singleton):
         returned_entity_id = None
         returned_entity_modifier = 0
         var_name = ""
-        if self.log_returned_result and result:
+        log_returned_entity = False
+        if self.config['log_returned_result'] and result:
             entity_id = self.get_entity_id(result, {})
+            # Check if entity is in traced_variables
+            # entity_id, modifier, var_name = self.check_traced_variable(entity_id)
             modifier = 0
             for var, tv_dict in self.traced_variables.items():
                 previous_ids = tv_dict["previous_ids"]
                 modifier = 0
                 if entity_id in previous_ids:
                     var_name = var
+                    # Update modifier to get an id that has not yet been generated
                     while entity_id in previous_ids:
                         modifier += 1
                         entity_id += 1
@@ -674,19 +686,35 @@ class ProvCapture(metaclass=Singleton):
                     }
             returned_entity_id = entity_id
             returned_entity_modifier = modifier
-        log_returned_entity = True
+            log_returned_entity = True  # changed to False later if returned entity is already logged
+            if not var_name:
+                # entity_id was not found in traced_variables, need to add it as _returned_result
+                if "_returned_result" in self.traced_variables:
+                    tv_dict = self.traced_variables["_returned_result"]
+                    tv_dict["last_id"] = returned_entity_id
+                    tv_dict["previous_ids"].append(returned_entity_id)
+                    tv_dict["modifier"] = 0
+                else:
+                    self.traced_variables["_returned_result"] = {
+                        "last_id": returned_entity_id,
+                        "previous_ids": [returned_entity_id],
+                        "item_description": {},
+                        "modifier": 0,
+                    }
         for item_description in generation_list:
             props = self.get_item_properties(scope, item_description)
             if "id" in props:
                 entity_id = props.pop("id")
                 # Keep new entity as traced
+                # entity_id, modifier = self.keep_as_traced_variable(entity_id, var=var)
                 modifier = 0
                 if "value" in item_description:
-                    if item_description["value"] in self.traced_variables:
-                        tv_dict = self.traced_variables[item_description["value"]]
+                    var = item_description["value"]
+                    if var in self.traced_variables:
+                        tv_dict = self.traced_variables[var]
+                        previous_ids = tv_dict["previous_ids"]
                         entity_id -= tv_dict["modifier"]
                         modifier = 0  # tv_dict["modifier"]  # try first to generate without modifier
-                        previous_ids = tv_dict["previous_ids"]
                         while entity_id in previous_ids:
                             modifier += 1
                             entity_id += 1
@@ -704,6 +732,7 @@ class ProvCapture(metaclass=Singleton):
                         "modifier": modifier,
                     }
                 if entity_id == returned_entity_id:
+                    # returned entity is already logged from the definition
                     log_returned_entity = False
                 if "namespace" in props:
                     entity_id = props.pop("namespace") + ":" + entity_id
@@ -732,7 +761,7 @@ class ProvCapture(metaclass=Singleton):
                     self.log_members(entity_id, item_description["has_members"], scope)
                 if "has_progenitors" in item_description:
                     self.log_progenitors(entity_id, item_description["has_progenitors"], scope)
-        if self.log_returned_result and result and log_returned_entity:
+        if log_returned_entity:
             # The detected returned entity was not yet logged, add a generic generation
             # Generation record
             prov_record = {
@@ -818,7 +847,7 @@ class ProvCapture(metaclass=Singleton):
             }
             self.log_prov_record(prov_record)
             if activity_name:
-                activity_id = self.get_activity_id()
+                activity_id = self.gen_activity_id()
                 prov_record = {
                     "activity_id": activity_id,
                     "name": activity_name,
