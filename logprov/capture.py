@@ -118,7 +118,7 @@ class ProvCapture(metaclass=Singleton):
             self.config = config
         else:
             self.config = logprov_default_config
-        # logging dict may be given in the config, otherwise, used default
+        # logging dict may be given in the config, otherwise, use default
         if "logging" in self.config:
             self.logging_dict = self.config["logging"]
         else:
@@ -198,14 +198,15 @@ class ProvCapture(metaclass=Singleton):
             if ("method" in str(type(func))) or (len(args) > 0 and hasattr(args[0], "__dict__")):
                 # func is a class method, search entities in class instance self (arg[0] of the method)
                 self.logger.debug(f"{activity} is a class method")
-                scope = args[0]
-                scope.args = args
-                scope.kwargs = kwargs
+                # TODO: change to args[0].__dict__ ?
+                scope = args[0].__dict__
+                # scope.args = args
+                # scope.kwargs = kwargs
             else:
                 # func is a regular function, search entities in globals
                 scope = self.globals
-                scope["args"] = args
-                scope["kwargs"] = kwargs
+            scope["args"] = args
+            scope["kwargs"] = kwargs
 
             log_active = self.log_is_active(scope, activity)
 

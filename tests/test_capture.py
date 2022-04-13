@@ -8,10 +8,10 @@ provconfig = {
     'capture': True,
     'hash_type': 'sha1',
     'log_filename': 'prov_test.log',
-    'log_all_args': True,
-    'log_args_as_entities': True,
-    'log_all_kwargs': True,
-    'log_returned_result': True,
+    'log_args': False,
+    'log_args_as_entities': False,
+    'log_kwargs': False,
+    'log_returned_result': False,
 }
 
 definitions_yaml = """
@@ -170,12 +170,12 @@ c1.set_var1(value=1)
 #c1.untraced(value=1)
 #c1.var1.value = 5
 #c1.set_var2(0)
-c1.set_var1()
-c1.set_var2(c1.var1, global_var, add_to_value=2)
-c1.write_file(filename="prov_test1.txt")
-copyfile("prov_test1.txt", "prov_test2.txt")
-c1.read_file(filename="prov_test2.txt")
-c1.set_var2(c1.var1, global_var, add_to_value=2)
+#c1.set_var1()
+#c1.set_var2(c1.var1, global_var, add_to_value=2)
+#c1.write_file(filename="prov_test1.txt")
+#copyfile("prov_test1.txt", "prov_test2.txt")
+#c1.read_file(filename="prov_test2.txt")
+#c1.set_var2(c1.var1, global_var, add_to_value=2)
 end = datetime.datetime.now().isoformat()
 print(start, "-->", end)
 

@@ -5,6 +5,7 @@ Provenance i/o conversion functions
 import datetime
 import yaml
 from prov.model import ProvDocument
+from voprov.models.model import VOProvDocument, VOProvBundle, VOPROV, PROV
 
 PROV_PREFIX = "_PROV_"
 DEFAULT_NS = "session"
@@ -16,7 +17,7 @@ __all__ = ["provlist2provdoc", "provdoc2svg", "read_prov"]
 
 def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
     """ Convert a list of provenance dictionaries to a provdoc W3C PROV compatible"""
-    pdoc = ProvDocument()
+    pdoc = VOProvDocument()
     pdoc.set_default_namespace("param:")
     pdoc.add_namespace(default_ns, default_ns + ":")
     pdoc.add_namespace("voprov", "voprov:")
@@ -45,7 +46,8 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
             )
         # activity
         if "activity_id" in provdict:
-            act_id = default_ns + ":" + "_".join([sess_id, str(provdict.pop("activity_id")).replace("-", "")])
+            act_id_short = str(provdict.pop("activity_id")).replace("-", "")
+            act_id = default_ns + ":" + "_".join([sess_id, act_id_short])
             if act_id in records:
                 act = records[act_id]
             else:
@@ -94,16 +96,19 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
                 # par.add_attributes({"prov:type": "Parameters"})
                 # par.add_attributes({"prov:label": "WasConfiguredBy"})
                 # act.used(par, attributes={"prov:type": "Setup"})
+                bundle_act_config = pdoc.bundle('#configuration#' + act_id_short);
                 for name, value in params.items():
                     value_short = str(value)[:20]
                     if len(value_short) == 20:
                         value_short += "..."
-                    par = pdoc.entity(act_id + "_" + name)
-                    par.add_attributes({"prov:label": name + " = " + value_short})
-                    par.add_attributes({"prov:type": "voprov:Parameter"})
-                    par.add_attributes({"voprov:name": name})
-                    par.add_attributes({"prov:value": value_short})
-                    act.used(par, attributes={"prov:type": "Setup"})
+                    # par = pdoc.entity(act_id + "_" + name)
+                    # par.add_attributes({"prov:label": name + " = " + value_short})
+                    # par.add_attributes({"prov:type": "voprov:Parameter"})
+                    # par.add_attributes({"voprov:name": name})
+                    # par.add_attributes({"prov:value": value_short})
+                    # act.used(par, attributes={"prov:type": "Setup"})
+                    par = bundle_act_config.parameter(act_id + "_" + name, name, value_short);
+                    pdoc.wasConfiguredBy(act, par, "Parameter");
             # usage
             if "used_id" in provdict:
                 ent_id = str(provdict.pop("used_id"))
@@ -209,16 +214,19 @@ def provlist2provdoc(provlist, default_ns=DEFAULT_NS):
     return pdoc
 
 
-def provdoc2svg(provdoc, filename):
-    from prov.dot import prov_to_dot
+def provdoc2svg(provdoc, filename,
+                use_labels=True,
+                show_element_attributes=True,
+                show_relation_attributes=False):
+    from voprov.visualization.dot import prov_to_dot
     from pydotplus.graphviz import InvocationException
 
     try:
         dot = prov_to_dot(
             provdoc,
-            use_labels=True,
-            show_element_attributes=True,
-            show_relation_attributes=True,
+            use_labels=use_labels,
+            show_element_attributes=show_element_attributes,
+            show_relation_attributes=show_relation_attributes,
         )
         svg_content = dot.create(format="svg")
     except InvocationException as e:
